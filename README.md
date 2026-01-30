@@ -126,6 +126,100 @@ The system follows a **pipeline architecture**. Each stage receives data, proces
 ---
 
 ## 6. System Flow (Runtime Behavior)
-
 This flow describes **what happens when the system is running**.
 
+```mermaid
+flowchart TD
+    A([Start]) --> B[Initialize Camera]
+    B --> C[Capture Frame]
+    C --> D[Detect Face]
+    D --> E{Face Detected?}
+    
+    %% Loop back if no face
+    E -- No --> C
+    
+    E -- Yes --> F[Encode Face]
+    F --> G[Compare with Known Encodings]
+    G --> H{Is Match Found?}
+    
+    %% Unknown Path
+    H -- No --> I[Label as 'Unknown']
+    I --> L
+    
+    %% Known Path
+    H -- Yes --> J{Already Marked?}
+    J -- Yes --> L[Display Result]
+    J -- No --> K[Mark Attendance]
+    K --> M[Save Record<br>Name, Date, Time]
+    M --> L
+    
+    %% Main Loop
+    L --> C
+```
+
+### Team Guidance
+- Attendance validation logic **must always prevent duplicates**
+- Recognition should be stateless; attendance is stateful
+
+---
+
+## 7. Data Flow Diagram (DFD)
+This diagram focuses on **how data moves**, not control flow.
+
+```mermaid
+graph TD
+    A[Camera] --> B[Image Frames]
+    B --> C[Face Detection Module]
+    C --> D[Face Recognition Module]
+    D --> E[Attendance Processing]
+    E --> F[Attendance Database]
+```
+
+
+---
+
+## 8. Database Design (Attendance Records)
+
+### Attendance Table Structure
+
+| Field | Type | Description |
+|-----|-----|------------|
+| id | Integer | Unique record ID |
+| name | String | Recognized person |
+| date | Date | Attendance date |
+| time | Time | Time of recognition |
+| status | String | Present |
+
+### Design Rules
+- One attendance entry per person per day
+- `(name, date)` should be unique
+- Storage layer must be replaceable without breaking logic
+
+---
+
+## 9. Evaluation Metrics (How We Measure Performance)
+
+### Recognition Quality
+- **Accuracy**  
+Accuracy = Correct Predictions / Total Predictions
+
+- **False Acceptance Rate (FAR)**
+- **False Rejection Rate (FRR)**
+
+### System Performance
+- Frame processing time
+- Recognition latency
+- Stability under multiple faces
+
+These metrics are important when optimizing or refactoring.
+
+---
+
+## 10. Installation & Development Setup (For Team Members)
+
+This section explains **how to run the project locally**.
+
+### Step 1: Clone the Repository
+git clone https://github.com/
+<your-username>/face-recognition-attendance.git
+cd face-recognition-attendance
