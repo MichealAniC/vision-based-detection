@@ -215,11 +215,23 @@ These metrics are important when optimizing or refactoring.
 
 ---
 
-## 10. Installation & Development Setup (For Team Members)
+## 11. Project Structure (How the Repository Is Organized)
 
-This section explains **how to run the project locally**.
+This section explains **where things live in the repository and what each folder/file is responsible for**.  
+Every team member should understand this before writing or modifying code.
 
-### Step 1: Clone the Repository
-git clone https://github.com/
-<your-username>/face-recognition-attendance.git
-cd face-recognition-attendance
+### High-Level Repository Structure
+
+face-recognition-attendance/
+│
+├── data/
+├── models/
+├── src/
+├── notebooks/
+├── scripts/
+├── tests/
+│
+├── requirements.txt
+├── README.md
+├── .gitignore
+└── LICENSE
