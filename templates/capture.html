@@ -1,0 +1,82 @@
+{% extends 'index.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2 text-center">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h3>Capture Face for ID: {{ student_id }}</h3>
+            </div>
+            <div class="card-body">
+                <p>Please look into the camera. We need to capture 30 images for training.</p>
+                <div class="mb-3">
+                    <img id="video_feed" src="{{ url_for('video_feed') }}" class="img-fluid rounded" width="400">
+                </div>
+                <div class="progress mb-3" style="height: 25px;">
+                    <div id="capture_progress" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;">0%</div>
+                </div>
+                <button id="start_capture" class="btn btn-primary btn-lg">Start Capturing</button>
+                <div id="status_msg" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('start_capture').onclick = function() {
+    this.disabled = true;
+    let studentId = "{{ student_id }}";
+    let count = 0;
+    let max = 30;
+    let statusMsg = document.getElementById('status_msg');
+    let progressBar = document.getElementById('capture_progress');
+
+    statusMsg.innerText = "Starting capture...";
+
+    async function captureFrame() {
+        if (count >= max) {
+            // Stop the video stream and turn off camera
+            document.getElementById('video_feed').src = "";
+            fetch('/stop_camera');
+            
+            statusMsg.innerHTML = '<div class="alert alert-success">Capture Complete! <a href="/" class="btn btn-link">Go to Home to start recognition</a></div>';
+            // Trigger training on server
+            fetch('/train');
+            return;
+        }
+
+        try {
+            const response = await fetch('/save_frame', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({student_id: studentId, count: count})
+            });
+
+            if (response.ok) {
+                count++;
+                let percent = Math.round((count / max) * 100);
+                progressBar.style.width = percent + "%";
+                progressBar.innerText = percent + "%";
+                statusMsg.innerText = "Captured " + count + "/" + max + " images";
+            } else if (response.status === 400) {
+                const result = await response.json();
+                if (result.status === "duplicate") {
+                    statusMsg.innerHTML = `<div class="alert alert-danger">${result.message}</div>`;
+                    // Stop capture
+                    document.getElementById('video_feed').src = "";
+                    fetch('/stop_camera');
+                    return; 
+                }
+            }
+        } catch (error) {
+            console.error("Capture failed", error);
+        }
+
+        // Schedule next capture only after current one is done
+        setTimeout(captureFrame, 200);
+    }
+
+    captureFrame();
+};
+</script>
+{% endblock %}
