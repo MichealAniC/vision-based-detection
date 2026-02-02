@@ -5,33 +5,174 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Face Recognition Attendance</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="/">FaceAttendance</a>
-            <div class="navbar-nav">
-                <a class="nav-link" href="/">Home</a>
-                <a class="nav-link" href="/register">Register</a>
-                <a class="nav-link" href="/attendance">Records</a>
-            </div>
+<body>
+    <!-- Sidebar (Only for Logged-in Admins) -->
+    {% if session.get('logged_in') and request.path != '/' %}
+    <nav id="sidebar">
+        <div class="px-4 mb-4">
+            <h4 class="text-white"><i class="fas fa-user-shield me-2"></i>VisionGate</h4>
+            <small class="text-muted">Attendance System</small>
+        </div>
+        
+        <div class="nav flex-column">
+            <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="/">
+                <i class="fas fa-home"></i> Dashboard
+            </a>
+            {% if session.get('logged_in') %}
+            <a class="nav-link {% if request.path == '/register' %}active{% endif %}" href="/register">
+                <i class="fas fa-user-plus"></i> Register
+            </a>
+            <a class="nav-link {% if request.path == '/students' %}active{% endif %}" href="/students">
+                <i class="fas fa-users-cog"></i> Students
+            </a>
+            <a class="nav-link {% if request.path == '/attendance' %}active{% endif %}" href="/attendance">
+                <i class="fas fa-clipboard-list"></i> Records
+            </a>
+            <a class="nav-link text-danger mt-5" href="/logout">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </a>
+            {% else %}
+            <a class="nav-link" href="/login">
+                <i class="fas fa-lock"></i> Admin Login
+            </a>
+            {% endif %}
         </div>
     </nav>
+    {% endif %}
 
-    <div class="container mt-5">
+    <!-- Main Content -->
+    <main id="content" {% if not session.get('logged_in') or request.path == '/' %}style="margin-left: 0;"{% endif %}>
         {% block content %}
-        <div class="row">
-            <div class="col-md-8 offset-md-2 text-center">
-                <h1>Real-Time Face Detection</h1>
-                <div class="card mt-4">
-                    <div class="card-body">
-                        <img src="{{ url_for('video_feed') }}" class="img-fluid rounded" width="100%">
+        <div class="container-fluid">
+            <div class="row mb-4 align-items-center">
+                <div class="col-md-6">
+                    <h2 class="fw-bold">Welcome, {{ session.lecturer_name }}</h2>
+                    <p class="text-muted">Course: <span class="badge bg-primary px-3 py-2">{{ session.course_code }}</span></p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    {% if stats.active_session %}
+                        <div class="input-group justify-content-end shadow-sm">
+                            <span class="input-group-text bg-success text-white border-0"><i class="fas fa-link"></i></span>
+                            <input type="text" class="form-control bg-white border-0" style="max-width: 350px;" id="sessionLink" value="{{ request.host_url }}session/{{ stats.active_session.session_token }}" readonly>
+                            <button class="btn btn-success" onclick="copyLink()">Copy Link</button>
+                        </div>
+                    {% else %}
+                        <form action="/create_session" method="POST">
+                            <button type="submit" class="btn btn-primary btn-lg shadow">
+                                <i class="fas fa-plus-circle me-2"></i>Generate New Session Link
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="row g-4 mb-5">
+                <div class="col-md-4">
+                    <div class="card stat-card bg-white h-100">
+                        <div class="card-body">
+                            <i class="fas fa-users stat-icon text-primary"></i>
+                            <h6 class="text-muted text-uppercase small fw-bold">Global Registered</h6>
+                            <h2 class="display-6 fw-bold mb-0">{{ stats.total_students }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card stat-card bg-white h-100">
+                        <div class="card-body">
+                            <i class="fas fa-user-check stat-icon text-success"></i>
+                            <h6 class="text-muted text-uppercase small fw-bold">Active Session Count</h6>
+                            <h2 class="display-6 fw-bold mb-0">{{ stats.today_attendance }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card stat-card bg-white h-100">
+                        <div class="card-body">
+                            <i class="fas fa-clock stat-icon text-dark"></i>
+                            <h6 class="text-muted text-uppercase small fw-bold">System Time</h6>
+                            <h2 class="display-6 fw-bold mb-0" id="system_time">--:--</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row justify-content-center">
+                <div class="col-lg-10">
+                    <div class="camera-container">
+                        {% if request.path == '/register' %}
+                            <div class="camera-overlay"></div>
+                            <div class="scanning-line"></div>
+                            <img src="{{ url_for('video_feed') }}" class="w-100 h-100 d-block" alt="Live Feed">
+                        {% else %}
+                            <div class="text-center py-5 bg-dark text-white rounded shadow-lg">
+                                <i class="fas fa-shield-alt fa-4x mb-3 opacity-25"></i>
+                                <h4>Security Mode Active</h4>
+                                <p class="text-muted">Camera is disabled for Lecturers to ensure privacy.<br>Use the 'Register' tab to enroll new students.</p>
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Notification Toast Container -->
+        <div class="toast-container position-fixed bottom-0 end-0 p-3">
+            <div id="attendanceToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <span id="toastMessage"></span>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script>
+            function updateTime() {
+                const now = new Date();
+                const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+                const timeEl = document.getElementById('system_time');
+                if (timeEl) timeEl.innerText = timeStr;
+            }
+            setInterval(updateTime, 1000);
+            updateTime();
+
+            function copyLink() {
+                const copyText = document.getElementById("sessionLink");
+                copyText.select();
+                copyText.setSelectionRange(0, 99999);
+                navigator.clipboard.writeText(copyText.value);
+                alert("Attendance Link Copied!");
+            }
+
+            // Function to show attendance toast
+            function showRecognitionToast(name) {
+                const toastEl = document.getElementById('attendanceToast');
+                const toastMsg = document.getElementById('toastMessage');
+                const toast = new bootstrap.Toast(toastEl);
+                toastMsg.innerText = `Recognized: ${name}`;
+                toast.show();
+            }
+
+            // Poll for recognition events every 2 seconds
+            function pollRecognition() {
+                fetch('/get_last_recognition')
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.name) {
+                            showRecognitionToast(data.name);
+                        }
+                    })
+                    .catch(e => console.error("Poll failed", e));
+            }
+            setInterval(pollRecognition, 2000);
+        </script>
         {% endblock %}
-    </div>
+    </main>
 </body>
 </html>

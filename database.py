@@ -7,7 +7,18 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Students Table
+    # Lecturers Table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS lecturers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            lecturer_id TEXT UNIQUE NOT NULL,
+            course_code TEXT NOT NULL,
+            password TEXT NOT NULL
+        )
+    ''')
+
+    # Students Table (Keep existing)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS students (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -17,17 +28,37 @@ def init_db():
         )
     ''')
     
-    # Attendance Table
+    # Sessions Table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            lecturer_id TEXT NOT NULL,
+            session_token TEXT UNIQUE NOT NULL,
+            is_active INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (lecturer_id) REFERENCES lecturers (lecturer_id)
+        )
+    ''')
+
+    # Attendance Table (Updated to link to session)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS attendance (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             student_id TEXT NOT NULL,
+            session_id INTEGER,
             date DATE DEFAULT (DATE('now')),
             time TIME DEFAULT (TIME('now')),
             status TEXT DEFAULT 'Present',
-            FOREIGN KEY (student_id) REFERENCES students (student_id)
+            FOREIGN KEY (student_id) REFERENCES students (student_id),
+            FOREIGN KEY (session_id) REFERENCES sessions (id)
         )
     ''')
+    
+    # Add Index for performance
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_attendance_sid ON attendance(student_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance(date)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_attendance_session ON attendance(session_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(session_token)')
     
     conn.commit()
     conn.close()

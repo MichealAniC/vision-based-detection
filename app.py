@@ -1,12 +1,25 @@
-from flask import Flask, render_template, Response, request, redirect, url_for, jsonify
+from flask import Flask, render_template, Response, request, redirect, url_for, jsonify, session, send_file
 import cv2
 import os
+import time
+import threading
+import shutil
+import csv
+import io
+import pickle
+import uuid
+import secrets
+from functools import wraps
 from database import init_db, DB_PATH
 import sqlite3
 from face_logic import FaceRecognizer
 
 app = Flask(__name__)
+app.secret_key = secrets.token_hex(16)
+
+# Initialize Face Engine
 face_engine = FaceRecognizer()
+# Load existing models if any
 face_engine.train()
 
 # Global camera object and frame buffer
@@ -16,26 +29,239 @@ last_frame = None
 # Initialize DB on start
 init_db()
 
+# Performance Caching
+student_name_cache = {} # {student_id: name}
+
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
+# --- Security: Authentication ---
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'logged_in' not in session:
+            return redirect(url_for('login', next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+    if request.method == 'POST':
+        lecturer_id = request.form['username']
+        password = request.form['password']
+        
+        conn = get_db_connection()
+        user = conn.execute('SELECT * FROM lecturers WHERE lecturer_id = ? AND password = ?', (lecturer_id, password)).fetchone()
+        conn.close()
+        
+        if user:
+            session['logged_in'] = True
+            session['lecturer_id'] = user['lecturer_id']
+            session['lecturer_name'] = user['name']
+            session['course_code'] = user['course_code']
+            return redirect(url_for('index'))
+        else:
+            error = 'Invalid Credentials. Please try again.'
+    return render_template('login.html', error=error)
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        name = request.form['name']
+        lecturer_id = request.form['lecturer_id']
+        course_code = request.form['course_code']
+        password = request.form['password']
+        
+        conn = get_db_connection()
+        try:
+            conn.execute('INSERT INTO lecturers (name, lecturer_id, course_code, password) VALUES (?, ?, ?, ?)',
+                         (name, lecturer_id, course_code, password))
+            conn.commit()
+            return redirect(url_for('login'))
+        except sqlite3.IntegrityError:
+            return "Lecturer ID already exists", 400
+        finally:
+            conn.close()
+    return render_template('signup.html')
+
+@app.route('/create_session', methods=['POST'])
+@login_required
+def create_session():
+    lecturer_id = session['lecturer_id']
+    token = secrets.token_urlsafe(8)
+    
+    conn = get_db_connection()
+    # Close any existing active sessions for this lecturer
+    conn.execute('UPDATE sessions SET is_active = 0 WHERE lecturer_id = ?', (lecturer_id,))
+    # Create new session
+    conn.execute('INSERT INTO sessions (lecturer_id, session_token) VALUES (?, ?)', (lecturer_id, token))
+    conn.commit()
+    conn.close()
+    
+    return redirect(url_for('index'))
+
+@app.route('/session/<token>')
+def student_session(token):
+    conn = get_db_connection()
+    session_data = conn.execute('''
+        SELECT s.*, l.name as lecturer_name, l.course_code 
+        FROM sessions s 
+        JOIN lecturers l ON s.lecturer_id = l.lecturer_id 
+        WHERE s.session_token = ? AND s.is_active = 1
+    ''', (token,)).fetchone()
+    conn.close()
+    
+    if not session_data:
+        return "Invalid or expired session link.", 404
+        
+    return render_template('student_attendance.html', session=session_data)
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+# --- Main Routes ---
 @app.route('/')
+def landing():
+    return render_template('landing.html')
+
+@app.route('/dashboard')
+@login_required
 def index():
-    return render_template('index.html')
+    # Dashboard Statistics
+    lecturer_id = session.get('lecturer_id')
+    if not lecturer_id:
+        return redirect(url_for('login'))
+        
+    conn = get_db_connection()
+    
+    total_students = conn.execute('SELECT COUNT(*) FROM students').fetchone()[0]
+    
+    # Get active session
+    active_session = conn.execute('SELECT * FROM sessions WHERE lecturer_id = ? AND is_active = 1', (lecturer_id,)).fetchone()
+    
+    today_attendance = 0
+    if active_session:
+        today_attendance = conn.execute('SELECT COUNT(DISTINCT student_id) FROM attendance WHERE session_id = ?', (active_session['id'],)).fetchone()[0]
+    
+    conn.close()
+    
+    return render_template('index.html', stats={
+        'total_students': total_students,
+        'today_attendance': today_attendance,
+        'active_session': active_session
+    })
 
 @app.route('/attendance')
+@login_required
 def view_attendance():
+    lecturer_id = session['lecturer_id']
     conn = get_db_connection()
     records = conn.execute('''
-        SELECT a.*, s.name 
+        SELECT a.*, s.name, sess.session_token
         FROM attendance a 
         JOIN students s ON a.student_id = s.student_id 
+        JOIN sessions sess ON a.session_id = sess.id
+        WHERE sess.lecturer_id = ?
         ORDER BY a.date DESC, a.time DESC
-    ''').fetchall()
+    ''', (lecturer_id,)).fetchall()
     conn.close()
     return render_template('attendance.html', records=records)
+
+@app.route('/export_attendance')
+@login_required
+def export_attendance():
+    lecturer_id = session['lecturer_id']
+    conn = get_db_connection()
+    records = conn.execute('''
+        SELECT a.date, a.time, a.student_id, s.name, a.status 
+        FROM attendance a 
+        JOIN students s ON a.student_id = s.student_id 
+        JOIN sessions sess ON a.session_id = sess.id
+        WHERE sess.lecturer_id = ?
+        ORDER BY a.date DESC, a.time DESC
+    ''', (lecturer_id,)).fetchall()
+    conn.close()
+
+    proxy = io.StringIO()
+    writer = csv.writer(proxy)
+    writer.writerow(['Date', 'Time', 'Student ID', 'Name', 'Status'])
+    for row in records:
+        writer.writerow([row['date'], row['time'], row['student_id'], row['name'], row['status']])
+
+    mem = io.BytesIO()
+    mem.write(proxy.getvalue().encode('utf-8'))
+    mem.seek(0)
+    proxy.close()
+
+    return send_file(
+        mem,
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=f'attendance_{time.strftime("%Y%m%d_%H%M%S")}.csv'
+    )
+
+@app.route('/students')
+@login_required
+def manage_students():
+    conn = get_db_connection()
+    students = conn.execute('SELECT * FROM students ORDER BY created_at DESC').fetchall()
+    conn.close()
+    return render_template('manage_students.html', students=students)
+
+@app.route('/delete_student/<path:student_id>', methods=['POST'])
+@login_required
+def delete_student(student_id):
+    conn = get_db_connection()
+    try:
+        # 1. Delete from DB
+        conn.execute('DELETE FROM attendance WHERE student_id = ?', (student_id,))
+        conn.execute('DELETE FROM students WHERE student_id = ?', (student_id,))
+        conn.commit()
+        
+        # 2. Delete Images
+        folder_name = student_id.replace('/', '-')
+        student_dir = os.path.join('uploads', folder_name)
+        if os.path.exists(student_dir):
+            shutil.rmtree(student_dir)
+            
+        # 3. Retrain model
+        face_engine.train()
+        
+    except Exception as e:
+        print(f"Error deleting student: {e}")
+    finally:
+        conn.close()
+    return redirect(url_for('manage_students'))
+
+@app.route('/delete_all_students', methods=['POST'])
+@login_required
+def delete_all_students():
+    conn = get_db_connection()
+    try:
+        # 1. Clear students and attendance from DB
+        conn.execute('DELETE FROM attendance')
+        conn.execute('DELETE FROM students')
+        conn.commit()
+        
+        # 2. Clear Uploaded Images
+        if os.path.exists('uploads'):
+            for filename in os.listdir('uploads'):
+                file_path = os.path.join('uploads', filename)
+                if os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+                    
+        # 3. Retrain (to empty model)
+        face_engine.train()
+    except Exception as e:
+        print(f"Error resetting students: {e}")
+    finally:
+        conn.close()
+    return redirect(url_for('manage_students'))
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -73,45 +299,131 @@ def register():
 def capture(student_id):
     return render_template('capture.html', student_id=student_id)
 
-def gen_frames():
+def gen_frames(session_id=None):
     global last_frame
     if not camera.isOpened():
         camera.open(0)
         
+    frame_count = 0
+    last_results = []
+    
     while camera.isOpened():
+        start_time = time.time()
         success, frame = camera.read()
         if not success:
             break
         
         last_frame = frame.copy()
         
-        # Detect faces for display
-        results = face_engine.detect_and_recognize(frame)
-        for res in results:
+        # Optimize: Only detect every 3rd frame to save CPU
+        if frame_count % 3 == 0:
+            last_results = face_engine.detect_and_recognize(frame)
+        
+        frame_count += 1
+        
+        # Draw results (even on skipped frames for smooth UI)
+        for res in last_results:
             x, y, w, h = res['box']
             cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-            cv2.putText(frame, res['student_id'], (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36,255,12), 2)
+            cv2.putText(frame, res['student_id'], (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (36,255,12), 2)
             
-            # Auto-mark attendance if recognized
-            if res['student_id'] != "Unknown":
-                mark_attendance(res['student_id'])
+            # Auto-mark attendance if recognized AND session_id is provided
+            if res['student_id'] != "Unknown" and session_id:
+                mark_attendance(res['student_id'], session_id)
 
-        ret, buffer = cv2.imencode('.jpg', frame)
+        # Optimize encoding: Use lower JPEG quality (70) for faster streaming
+        ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
         frame = buffer.tobytes()
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+        
+        # Throttle FPS to ~15 to reduce CPU load
+        elapsed_time = time.time() - start_time
+        sleep_time = max(0, (1.0 / 15.0) - elapsed_time)
+        time.sleep(sleep_time)
 
 @app.route('/video_feed')
 def video_feed():
-    return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    # If a session token is provided, link to that session
+    token = request.args.get('token')
+    session_id = None
+    if token:
+        conn = get_db_connection()
+        s = conn.execute('SELECT id FROM sessions WHERE session_token = ? AND is_active = 1', (token,)).fetchone()
+        conn.close()
+        if s:
+            session_id = s['id']
+            
+    return Response(gen_frames(session_id), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-def mark_attendance(student_id):
+last_recognition_name = None
+
+def mark_attendance(student_id, session_id):
+    global last_recognition_name
+    # Map folder-safe ID back to real ID if necessary
+    
+    # Quick check in cache first
+    actual_id = student_id
+    student_name = student_name_cache.get(student_id)
+    
     conn = get_db_connection()
-    # Check if already marked today
-    exists = conn.execute('SELECT id FROM attendance WHERE student_id = ? AND date = date("now")', (student_id,)).fetchone()
+    if not student_name:
+        # Search DB and update cache
+        actual_student = conn.execute('''
+            SELECT student_id, name FROM students 
+            WHERE student_id = ? OR REPLACE(student_id, '/', '-') = ?
+        ''', (student_id, student_id)).fetchone()
+        
+        if not actual_student:
+            conn.close()
+            return
+            
+        actual_id = actual_student['student_id']
+        student_name = actual_student['name']
+        student_name_cache[student_id] = student_name
+        student_name_cache[actual_id] = student_name
+    else:
+        # If cache hit, we still need actual_id for the INSERT
+        # But we can assume student_id from recognizer is either the actual or folder-safe
+        # For safety, we keep the ID mapping logic but cache names
+        actual_student = conn.execute('''
+            SELECT student_id FROM students 
+            WHERE student_id = ? OR REPLACE(student_id, '/', '-') = ?
+        ''', (student_id, student_id)).fetchone()
+        if actual_student:
+            actual_id = actual_student['student_id']
+        else:
+            conn.close()
+            return
+
+    student_id = actual_id
+    last_recognition_name = student_name
+
+    # Cooldown logic (Per Session)
+    current_time = time.time()
+    cooldown_key = f"{student_id}_{session_id}"
+    if not hasattr(mark_attendance, 'cooldowns'):
+        mark_attendance.cooldowns = {}
+        
+    if cooldown_key in mark_attendance.cooldowns:
+        if current_time - mark_attendance.cooldowns[cooldown_key] < 30: # 30s cooldown per session
+            conn.close()
+            return
+
+    # Check if already marked in THIS session
+    exists = conn.execute('SELECT id FROM attendance WHERE student_id = ? AND session_id = ?', (student_id, session_id)).fetchone()
+    
     if not exists:
-        conn.execute('INSERT INTO attendance (student_id) VALUES (?)', (student_id,))
-        conn.commit()
+        try:
+            conn.execute('INSERT INTO attendance (student_id, session_id, date, time, status) VALUES (?, ?, date("now"), time("now"), "Present")', (student_id, session_id))
+            conn.commit()
+            print(f"Attendance recorded: {student_id} for session {session_id}")
+        except sqlite3.Error as e:
+            print(f"DB Error marking attendance: {e}")
+    else:
+        print(f"Student {student_id} already marked for session {session_id}, showing confirmation.")
+    
+    mark_attendance.cooldowns[cooldown_key] = current_time
     conn.close()
 
 @app.route('/save_frame', methods=['POST'])
@@ -132,24 +444,95 @@ def save_frame():
                     "message": f"Face already recognized as Student: {res['student_id']}. Duplicate registration denied."
                 }), 400
 
+        # Optimization: Compress/Resize captured image to 200x200 for faster training
+        gray_frame = cv2.cvtColor(last_frame, cv2.COLOR_BGR2GRAY)
+        # Find face in this frame to crop/save only the face if possible
+        faces = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml').detectMultiScale(gray_frame, 1.3, 5)
+        
+        save_img = gray_frame
+        if len(faces) > 0:
+            (x, y, w, h) = faces[0]
+            save_img = gray_frame[y:y+h, x:x+w]
+        
+        save_img = cv2.resize(save_img, (200, 200))
+
         folder_name = student_id.replace('/', '-')
         student_dir = os.path.join('uploads', folder_name)
         img_path = os.path.join(student_dir, f"{count}.jpg")
-        cv2.imwrite(img_path, last_frame)
+        cv2.imwrite(img_path, save_img)
         return jsonify({"status": "success"})
     
     return jsonify({"status": "error", "message": "No frame available"}), 500
 
 @app.route('/train')
 def train_model():
-    success = face_engine.train()
-    return jsonify({"status": "success" if success else "error"})
+    # Run training in a background thread to prevent UI freeze
+    thread = threading.Thread(target=face_engine.train)
+    thread.start()
+    return jsonify({"status": "training_started"})
+
+import shutil
+
+@app.route('/reset_system', methods=['POST'])
+def reset_system():
+    conn = get_db_connection()
+    try:
+        # 1. Clear Database Tables
+        conn.execute('DELETE FROM attendance')
+        conn.execute('DELETE FROM students')
+        conn.commit()
+        
+        # 2. Clear Uploaded Images
+        folder = 'uploads'
+        for filename in os.listdir(folder):
+            file_path = os.path.join(folder, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print('Failed to delete %s. Reason: %s' % (file_path, e))
+        
+        # 3. Reload/Reset the Face Engine
+        face_engine.trained = False
+        face_engine.label_map = {}
+        
+        return jsonify({"status": "success", "message": "System has been completely reset. All students and records deleted."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/delete_all_records', methods=['POST'])
+@login_required
+def delete_all_records():
+    lecturer_id = session['lecturer_id']
+    conn = get_db_connection()
+    try:
+        conn.execute('''
+            DELETE FROM attendance 
+            WHERE session_id IN (SELECT id FROM sessions WHERE lecturer_id = ?)
+        ''', (lecturer_id,))
+        conn.commit()
+    except sqlite3.Error:
+        pass
+    finally:
+        conn.close()
+    return redirect(url_for('view_attendance'))
 
 @app.route('/stop_camera')
 def stop_camera():
     if camera.isOpened():
         camera.release()
     return jsonify({"status": "camera off"})
+
+@app.route('/get_last_recognition')
+def get_last_recognition():
+    global last_recognition_name
+    name = last_recognition_name
+    last_recognition_name = None # Clear after fetching
+    return jsonify({'name': name})
 
 if __name__ == '__main__':
     app.run(debug=True)

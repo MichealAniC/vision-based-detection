@@ -1,33 +1,102 @@
 {% extends 'index.html' %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-10 offset-md-1 text-center">
-        <h2>Attendance Records</h2>
-        <div class="table-responsive mt-4">
-            <table class="table table-striped table-hover">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Date</th>
-                        <th>Time</th>
-                        <th>Student ID</th>
-                        <th>Name</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for record in records %}
-                    <tr>
-                        <td>{{ record.date }}</td>
-                        <td>{{ record.time }}</td>
-                        <td>{{ record.student_id }}</td>
-                        <td>{{ record.name }}</td>
-                        <td><span class="badge bg-success">{{ record.status }}</span></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <h2 class="fw-bold"><i class="fas fa-clipboard-list me-2"></i>Attendance Records</h2>
+            <p class="text-muted">Historical logs of all recognized biometric events</p>
+        </div>
+        <div class="col-md-6 text-md-end align-self-center">
+            <div class="btn-group shadow-sm">
+                <a href="/export_attendance" class="btn btn-success"><i class="fas fa-file-export me-2"></i>Export CSV</a>
+                <button type="button" class="btn btn-dark dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                    <span class="visually-hidden">Toggle Dropdown</span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                    <li>
+                        <form action="/delete_all_records" method="POST" onsubmit="return confirm('Delete ONLY attendance logs? (Registration data is kept)');">
+                            <button type="submit" class="dropdown-item text-warning">
+                                <i class="fas fa-eraser me-2"></i>Clear Attendance Logs
+                            </button>
+                        </form>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <button id="full_reset_btn" class="dropdown-item text-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Full System Reset
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="card stat-card bg-white border-0 shadow-sm">
+        <div class="card-header bg-white py-3 border-bottom">
+            <div class="input-group">
+                <span class="input-group-text bg-light border-0"><i class="fas fa-search text-muted"></i></span>
+                <input type="text" id="attendanceSearch" class="form-control bg-light border-0" placeholder="Search records by name, ID or date...">
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="attendanceTable">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="ps-4">Timestamp</th>
+                            <th>Student ID</th>
+                            <th>Full Name</th>
+                            <th>Status</th>
+                            <th class="text-end pe-4">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in records %}
+                        <tr>
+                            <td class="ps-4 fw-medium">{{ record.time }}</td>
+                            <td><code>{{ record.student_id }}</code></td>
+                            <td>{{ record.name }}</td>
+                            <td><span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-3">Present</span></td>
+                            <td class="text-end pe-4 text-muted">{{ record.date }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% if not records %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                <i class="fas fa-history fa-3x mb-3 opacity-25"></i><br>
+                                No attendance records found.
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
+
+<script>
+    // Search functionality
+    document.getElementById('attendanceSearch').addEventListener('keyup', function() {
+        let filter = this.value.toLowerCase();
+        let rows = document.querySelectorAll('#attendanceTable tbody tr');
+        rows.forEach(row => {
+            let text = row.innerText.toLowerCase();
+            row.style.display = text.includes(filter) ? '' : 'none';
+        });
+    });
+
+    // Reset button logic
+    document.getElementById('full_reset_btn').onclick = function() {
+        if (confirm("CRITICAL: This will delete ALL registered students and ALL biometric data. This cannot be undone. Proceed?")) {
+            fetch('/reset_system', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                window.location.href = "/";
+            });
+        }
+    };
+</script>
 {% endblock %}

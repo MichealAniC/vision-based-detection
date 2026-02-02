@@ -1,0 +1,159 @@
+:root {
+    --sidebar-width: 250px;
+    --primary-color: #2c3e50;
+    --secondary-color: #3498db;
+    --accent-color: #e74c3c;
+    --bg-light: #f8f9fa;
+    --text-dark: #2c3e50;
+    --text-muted: #7f8c8d;
+}
+
+body {
+    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-light);
+    color: var(--text-dark);
+    margin: 0;
+    overflow-x: hidden;
+}
+
+/* Sidebar Styles */
+#sidebar {
+    width: var(--sidebar-width);
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    background-color: var(--primary-color);
+    color: white;
+    padding-top: 20px;
+    z-index: 1000;
+    transition: all 0.3s;
+}
+
+#sidebar .nav-link {
+    color: rgba(255,255,255,0.7);
+    padding: 12px 25px;
+    display: block;
+    text-decoration: none;
+    transition: all 0.2s;
+    border-left: 4px solid transparent;
+}
+
+#sidebar .nav-link:hover, #sidebar .nav-link.active {
+    color: white;
+    background-color: rgba(255,255,255,0.1);
+    border-left-color: var(--secondary-color);
+}
+
+#sidebar .nav-link i {
+    margin-right: 10px;
+    width: 20px;
+}
+
+/* Content Area */
+#content {
+    margin-left: var(--sidebar-width);
+    padding: 30px;
+    min-height: 100vh;
+    transition: all 0.3s;
+}
+
+/* Dashboard Cards */
+.stat-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    transition: transform 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+}
+
+.stat-card .card-body {
+    padding: 25px;
+}
+
+.stat-icon {
+    font-size: 2.5rem;
+    opacity: 0.2;
+    position: absolute;
+    right: 20px;
+    top: 20px;
+}
+
+/* Camera Container */
+.camera-container {
+    position: relative;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    background: #000;
+}
+
+.camera-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    border: 2px solid rgba(52, 152, 219, 0.3);
+}
+
+.camera-overlay::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    width: 40px;
+    height: 40px;
+    border-top: 3px solid var(--secondary-color);
+    border-left: 3px solid var(--secondary-color);
+}
+
+.camera-overlay::after {
+    content: '';
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    border-bottom: 3px solid var(--secondary-color);
+    border-right: 3px solid var(--secondary-color);
+}
+
+.scanning-line {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: rgba(52, 152, 219, 0.5);
+    box-shadow: 0 0 15px rgba(52, 152, 219, 0.8);
+    animation: scan 3s linear infinite;
+}
+
+@keyframes scan {
+    0% { top: 0; }
+    100% { top: 100%; }
+}
+
+/* Toast Notifications */
+.toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1060;
+}
+
+/* Buttons */
+.btn-primary { background-color: var(--secondary-color); border: none; }
+.btn-primary:hover { background-color: #2980b9; }
+
+/* Responsive */
+@media (max-width: 768px) {
+    #sidebar { margin-left: calc(-1 * var(--sidebar-width)); }
+    #content { margin-left: 0; }
+    #sidebar.active { margin-left: 0; }
+}
