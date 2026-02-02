@@ -27,20 +27,31 @@
 
                     <div class="card stat-card bg-white border-0 shadow-lg overflow-hidden" id="main_card">
                         <div class="card-body p-0" id="camera_section">
-                            <div class="camera-container">
+                            <div class="camera-container position-relative">
+                                <!-- Loading State -->
+                                <div id="camera_loading" class="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center bg-dark text-white" style="z-index: 5;">
+                                    <div class="spinner-border text-primary mb-3" role="status"></div>
+                                    <p class="small mb-0">Starting Camera...</p>
+                                </div>
+                                
+                                <!-- Guide Frame Overlay -->
+                                <div id="guide_frame" class="position-absolute top-50 start-50 translate-middle border border-2 border-primary rounded-circle opacity-50" style="width: 200px; height: 260px; z-index: 2; pointer-events: none;">
+                                    <div class="position-absolute top-0 start-50 translate-middle-x bg-primary text-white px-2 py-1 rounded-bottom small" style="font-size: 10px;">ALIGN FACE HERE</div>
+                                </div>
+
                                 <div class="camera-overlay"></div>
                                 <div class="scanning-line"></div>
-                                <img src="{{ url_for('video_feed', token=session.session_token) }}" id="student_video" class="w-100 h-100 d-block" alt="Live Feed">
+                                <img src="{{ url_for('video_feed', token=session.session_token) }}" id="student_video" class="w-100 h-100 d-block" alt="Live Feed" onload="document.getElementById('camera_loading').classList.add('d-none');">
                             </div>
                         </div>
                         <div id="success_section" class="d-none p-5 text-center">
                             <div class="mb-4">
-                                <i class="fas fa-check-circle fa-5x text-success animate__animated animate__bounceIn"></i>
+                                <i id="success_icon" class="fas fa-check-circle fa-5x text-success animate__animated animate__bounceIn"></i>
                             </div>
-                            <h2 class="fw-bold">Attendance Marked!</h2>
+                            <h2 id="success_title" class="fw-bold">Attendance Marked!</h2>
                             <p class="lead text-muted" id="success_name"></p>
                             <hr class="my-4">
-                            <p class="small text-muted">Your attendance for <strong>{{ session.course_code }}</strong> has been recorded.</p>
+                            <p class="small text-muted" id="success_desc">Your attendance for <strong>{{ session.course_code }}</strong> has been recorded.</p>
                             <a href="/" class="btn btn-outline-primary mt-3">Return Home</a>
                         </div>
                         <div class="card-footer bg-white border-0 p-4 text-center" id="footer_instructions">
@@ -77,7 +88,7 @@
     <script>
         let pollInterval;
 
-        function showRecognitionToast(name) {
+        function showRecognitionToast(data) {
             // Stop polling
             clearInterval(pollInterval);
             
@@ -92,13 +103,24 @@
             document.getElementById('camera_section').classList.add('d-none');
             document.getElementById('footer_instructions').classList.add('d-none');
             document.getElementById('success_section').classList.remove('d-none');
-            document.getElementById('success_name').innerText = `Hello, ${name}!`;
+            document.getElementById('success_name').innerText = `Hello, ${data.name}!`;
 
-            // Optional: Show toast as well
+            if (data.status === 'already_marked') {
+                document.getElementById('success_icon').className = "fas fa-info-circle fa-5x text-info animate__animated animate__pulse";
+                document.getElementById('success_title').innerText = "Already Marked";
+                document.getElementById('success_desc').innerHTML = `You have <strong>already marked</strong> your attendance for this session.`;
+            }
+
+            // Show toast as well
             const toastEl = document.getElementById('attendanceToast');
             const toastMsg = document.getElementById('toastMessage');
             const toast = new bootstrap.Toast(toastEl);
-            toastMsg.innerText = `Recognized: ${name}. Attendance marked!`;
+            if (data.status === 'already_marked') {
+                toastEl.classList.replace('bg-success', 'bg-info');
+                toastMsg.innerText = `Recognized: ${data.name}. You were already marked!`;
+            } else {
+                toastMsg.innerText = `Recognized: ${data.name}. Attendance marked!`;
+            }
             toast.show();
         }
 
@@ -107,7 +129,7 @@
                 .then(res => res.json())
                 .then(data => {
                     if (data.name) {
-                        showRecognitionToast(data.name);
+                        showRecognitionToast(data);
                     }
                 })
                 .catch(e => console.error("Poll failed", e));

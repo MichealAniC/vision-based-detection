@@ -18,9 +18,9 @@ class FaceRecognizer:
         else:
             self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
         
-        # Using LBPH for recognition (as dlib is unavailable in this env)
-        # We will structure it to use persistent storage as requested
-        self.recognizer = cv2.face.LBPHFaceRecognizer_create()
+        # Using LBPH for recognition
+        # Radius=1, Neighbors=8 is standard but Radius=2, Neighbors=16 can be more robust to noise
+        self.recognizer = cv2.face.LBPHFaceRecognizer_create(radius=1, neighbors=8, grid_x=8, grid_y=8)
         self.trained = False
         self.label_map = {} # {int_label: student_id}
         
@@ -93,7 +93,7 @@ class FaceRecognizer:
 
     def detect_and_recognize(self, frame):
         # Determine target detection width for consistent speed
-        target_width = 320
+        target_width = 400 # Slightly larger for better detail
         h, w = frame.shape[:2]
         scale = target_width / float(w)
         
@@ -101,24 +101,19 @@ class FaceRecognizer:
         small_frame = cv2.resize(frame, (0, 0), fx=scale, fy=scale)
         gray = cv2.cvtColor(small_frame, cv2.COLOR_BGR2GRAY)
         
-        # Apply Histogram Equalization to normalize lighting
-        gray = cv2.equalizeHist(gray)
+        # USE CLAHE for much better light normalization than standard equalizeHist
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        gray = clahe.apply(gray)
         
-        # Increased minNeighbors to 7 for stricter face detection
-        # minSize increased to ignore tiny background blobs
-        faces = self.face_cascade.detectMultiScale(gray, 1.1, 7, minSize=(30, 30))
+        # Stricter detection parameters
+        faces = self.face_cascade.detectMultiScale(gray, 1.1, 7, minSize=(40, 40))
         
         results = []
         inv_scale = 1.0 / scale
         
-        # Optimize: Only process the first face for recognition in real-time streams
-        # to ensure high FPS, unless we need multi-person support.
-        # Keeping multi-person for now but optimizing ROI extraction.
-        
-        full_gray = None # Lazy initialization
+        full_gray = None 
         
         for (x, y, w_f, h_f) in faces:
-            # Upscale coordinates back to original size
             orig_x, orig_y, orig_w, orig_h = int(x*inv_scale), int(y*inv_scale), int(w_f*inv_scale), int(h_f*inv_scale)
             
             student_id = "Unknown"
@@ -131,14 +126,17 @@ class FaceRecognizer:
                 roi_gray = full_gray[orig_y:orig_y+orig_h, orig_x:orig_x+orig_w]
                 if roi_gray.size == 0: continue
                 
-                roi_gray = cv2.resize(roi_gray, (200, 200), interpolation=cv2.INTER_AREA)
-                # Normalize ROI lighting
-                roi_gray = cv2.equalizeHist(roi_gray)
+                roi_gray = cv2.resize(roi_gray, (200, 200), interpolation=cv2.INTER_LANCZOS4)
+                # Apply CLAHE to ROI as well
+                roi_gray = clahe.apply(roi_gray)
+                roi_gray = cv2.GaussianBlur(roi_gray, (3, 3), 0)
                 
                 label, confidence = self.recognizer.predict(roi_gray)
                 
-                # LOWERED THRESHOLD: LBPH score below 55 is required for a positive match
-                if confidence < 55: 
+                # REFINED THRESHOLD: LBPH score below 45 is now required for HIGH certainty.
+                # Between 45 and 55 is "Uncertain" but might be accepted if lighting is poor.
+                # Values above 55 are definitely Unknown.
+                if confidence < 47: 
                     student_id = self.label_map.get(label, "Unknown")
                 
                 confidence_score = confidence

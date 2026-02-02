@@ -48,7 +48,8 @@
                             <th>Student ID</th>
                             <th>Full Name</th>
                             <th>Status</th>
-                            <th class="text-end pe-4">Date</th>
+                            <th>Date</th>
+                            <th class="text-end pe-4">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -58,7 +59,14 @@
                             <td><code>{{ record.student_id }}</code></td>
                             <td>{{ record.name }}</td>
                             <td><span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-3">Present</span></td>
-                            <td class="text-end pe-4 text-muted">{{ record.date }}</td>
+                            <td class="text-muted">{{ record.date }}</td>
+                            <td class="text-end pe-4">
+                                <form action="{{ url_for('delete_attendance_record', record_id=record.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this attendance record?');">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm border-0">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                            </td>
                         </tr>
                         {% endfor %}
                         {% if not records %}

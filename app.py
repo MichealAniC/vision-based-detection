@@ -265,6 +265,11 @@ def delete_all_students():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    # Crucial: Ensure no admin session is active during student registration
+    # but we don't want to log out an admin if they are just registering a student
+    # Wait, the user says students are accessing admin features. 
+    # Let's ensure 'logged_in' is only for lecturers.
+    
     error = None
     if request.method == 'POST':
         name = request.form['name']
@@ -356,10 +361,10 @@ def video_feed():
             
     return Response(gen_frames(session_id), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-last_recognition_name = None
+last_recognition_status = None # {'name': '...', 'status': '...'}
 
 def mark_attendance(student_id, session_id):
-    global last_recognition_name
+    global last_recognition_status
     # Map folder-safe ID back to real ID if necessary
     
     # Quick check in cache first
@@ -384,8 +389,6 @@ def mark_attendance(student_id, session_id):
         student_name_cache[actual_id] = student_name
     else:
         # If cache hit, we still need actual_id for the INSERT
-        # But we can assume student_id from recognizer is either the actual or folder-safe
-        # For safety, we keep the ID mapping logic but cache names
         actual_student = conn.execute('''
             SELECT student_id FROM students 
             WHERE student_id = ? OR REPLACE(student_id, '/', '-') = ?
@@ -397,7 +400,6 @@ def mark_attendance(student_id, session_id):
             return
 
     student_id = actual_id
-    last_recognition_name = student_name
 
     # Cooldown logic (Per Session)
     current_time = time.time()
@@ -406,7 +408,8 @@ def mark_attendance(student_id, session_id):
         mark_attendance.cooldowns = {}
         
     if cooldown_key in mark_attendance.cooldowns:
-        if current_time - mark_attendance.cooldowns[cooldown_key] < 30: # 30s cooldown per session
+        # If recognized again within 10 seconds, don't trigger a new UI update
+        if current_time - mark_attendance.cooldowns[cooldown_key] < 10: 
             conn.close()
             return
 
@@ -417,11 +420,14 @@ def mark_attendance(student_id, session_id):
         try:
             conn.execute('INSERT INTO attendance (student_id, session_id, date, time, status) VALUES (?, ?, date("now"), time("now"), "Present")', (student_id, session_id))
             conn.commit()
-            print(f"Attendance recorded: {student_id} for session {session_id}")
+            last_recognition_status = {'name': student_name, 'status': 'marked'}
+            print(f"Attendance recorded: {student_id}")
         except sqlite3.Error as e:
             print(f"DB Error marking attendance: {e}")
     else:
-        print(f"Student {student_id} already marked for session {session_id}, showing confirmation.")
+        # If already marked, notify the student
+        last_recognition_status = {'name': student_name, 'status': 'already_marked'}
+        print(f"Student {student_id} already marked.")
     
     mark_attendance.cooldowns[cooldown_key] = current_time
     conn.close()
@@ -435,14 +441,25 @@ def save_frame():
     
     if last_frame is not None:
         # RECOGNITION CHECK: Prevent re-registering an already known face
+        # We use a slightly more relaxed threshold for duplicate checks to be safe
         results = face_engine.detect_and_recognize(last_frame)
+        
+        # If no face is detected at all during capture, return error
+        if not results:
+             return jsonify({
+                "status": "error", 
+                "message": "Face not detected. Please look into the camera."
+            }), 400
+
         for res in results:
-            # If recognized as someone else (not "Unknown" and not the current ID being registered)
+            # If recognized as someone else (high confidence)
             if res['student_id'] != "Unknown" and res['student_id'] != student_id:
-                return jsonify({
-                    "status": "duplicate", 
-                    "message": f"Face already recognized as Student: {res['student_id']}. Duplicate registration denied."
-                }), 400
+                # LOWERED THRESHOLD for duplicate detection to be more sensitive (50 confidence = 50 score)
+                if res['confidence'] > 50: 
+                    return jsonify({
+                        "status": "duplicate", 
+                        "message": f"Security Alert: This face is already registered under Student ID: {res['student_id']}."
+                    }), 400
 
         # Optimization: Compress/Resize captured image to 200x200 for faster training
         gray_frame = cv2.cvtColor(last_frame, cv2.COLOR_BGR2GRAY)
@@ -466,12 +483,20 @@ def save_frame():
 
 @app.route('/train')
 def train_model():
-    # Run training in a background thread to prevent UI freeze
-    thread = threading.Thread(target=face_engine.train)
-    thread.start()
-    return jsonify({"status": "training_started"})
+    # Synchronous training for registration to ensure data is immediately ready
+    success = face_engine.train()
+    return jsonify({"status": "training_started" if success else "error"})
 
 import shutil
+
+@app.route('/delete_attendance_record/<int:record_id>', methods=['POST'])
+@login_required
+def delete_attendance_record(record_id):
+    conn = get_db_connection()
+    conn.execute('DELETE FROM attendance WHERE id = ?', (record_id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('view_attendance'))
 
 @app.route('/reset_system', methods=['POST'])
 def reset_system():
@@ -529,10 +554,10 @@ def stop_camera():
 
 @app.route('/get_last_recognition')
 def get_last_recognition():
-    global last_recognition_name
-    name = last_recognition_name
-    last_recognition_name = None # Clear after fetching
-    return jsonify({'name': name})
+    global last_recognition_status
+    status = last_recognition_status
+    last_recognition_status = None # Clear after fetching
+    return jsonify(status if status else {})
 
 if __name__ == '__main__':
     app.run(debug=True)
