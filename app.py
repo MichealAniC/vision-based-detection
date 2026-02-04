@@ -315,7 +315,13 @@ def capture(student_id):
 def gen_frames(session_id=None):
     global last_frame
     if not camera.isOpened():
-        camera.open(0)
+        # Using CAP_DSHOW on Windows for significantly faster startup (0.5s vs 10s)
+        camera.open(0, cv2.CAP_DSHOW)
+        
+        # Optimize camera resolution for faster processing if needed
+        camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        camera.set(cv2.CAP_PROP_FPS, 30)
         
     frame_count = 0
     last_results = []
@@ -462,8 +468,8 @@ def save_frame():
         for res in results:
             # If recognized as someone else (high confidence)
             if res['student_id'] != "Unknown" and res['student_id'] != student_id:
-                # LOWERED THRESHOLD for duplicate detection to be more sensitive (50 confidence = 50 score)
-                if res['confidence'] > 50: 
+                # STRICT duplicate detection: 55+ confidence means strong match
+                if res['confidence'] > 55: 
                     return jsonify({
                         "status": "duplicate", 
                         "message": f"Security Alert: This face is already registered under Student ID: {res['student_id']}."

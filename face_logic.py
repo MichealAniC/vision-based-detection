@@ -58,7 +58,10 @@ class FaceRecognizer:
         if not os.path.exists(self.dataset_path):
             return False
 
-        for student_dir in os.listdir(self.dataset_path):
+        # CRITICAL: Sort directories to ensure consistent label mapping across retrains
+        sorted_dirs = sorted(os.listdir(self.dataset_path))
+        
+        for student_dir in sorted_dirs:
             student_path = os.path.join(self.dataset_path, student_dir)
             if not os.path.isdir(student_path):
                 continue
@@ -71,18 +74,28 @@ class FaceRecognizer:
                 if img is None:
                     continue
                 
+                # Apply CLAHE to training images for consistency
+                clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+                img = clahe.apply(img)
+                
                 # Standardize size for training
-                img = cv2.resize(img, (200, 200))
+                img = cv2.resize(img, (200, 200), interpolation=cv2.INTER_LANCZOS4)
+                # Apply slight blur to reduce noise (same as recognition)
+                img = cv2.GaussianBlur(img, (3, 3), 0)
+                
                 faces.append(img)
                 labels.append(current_id)
             
             current_id += 1
             
         if len(faces) > 0:
+            # CRITICAL: Recreate recognizer for clean training (prevents data leakage)
+            self.recognizer = cv2.face.LBPHFaceRecognizer_create(radius=1, neighbors=8, grid_x=8, grid_y=8)
             self.recognizer.train(faces, np.array(labels))
             self.label_map = new_label_map
             self.trained = True
             self.save_model()
+            print(f"Training complete: {len(new_label_map)} students, {len(faces)} images")
             return True
         else:
             self.trained = False
@@ -133,10 +146,9 @@ class FaceRecognizer:
                 
                 label, confidence = self.recognizer.predict(roi_gray)
                 
-                # REFINED THRESHOLD: LBPH score below 45 is now required for HIGH certainty.
-                # Between 45 and 55 is "Uncertain" but might be accepted if lighting is poor.
-                # Values above 55 are definitely Unknown.
-                if confidence < 47: 
+                # STRICT THRESHOLD: 42 for production-grade accuracy
+                # Only accept matches with VERY high certainty to prevent misidentification
+                if confidence < 42: 
                     student_id = self.label_map.get(label, "Unknown")
                 
                 confidence_score = confidence
