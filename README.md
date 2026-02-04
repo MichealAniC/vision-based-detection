@@ -235,6 +235,7 @@ face-recognition-attendance/
 ├── .gitignore
 └── LICENSE
 
+```
 
 Each directory has a **single, clear responsibility**. Do not place files arbitrarily.
 
