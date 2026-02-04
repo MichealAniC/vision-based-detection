@@ -203,8 +203,8 @@ graph TD
 - **Accuracy**  
 Accuracy = Correct Predictions / Total Predictions
 
-- **False Acceptance Rate (FAR)**
-- **False Rejection Rate (FRR)**
+- **Face Acceptance Rate (FAR)**
+- **Face Rejection Rate (FRR)**
 
 ### System Performance
 - Frame processing time
