@@ -1,0 +1,197 @@
+{% extends 'index.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="text-center mb-5">
+            <h1 class="fw-bold">Help & Support</h1>
+            <p class="text-muted">Everything you need to know about using the VisionGate Attendance System.</p>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-4">
+                <!-- Navigation Tabs -->
+                <div class="nav flex-column nav-pills me-3 shadow-sm bg-white p-3 rounded-4 sticky-top" style="top: 100px;" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+                    <button class="nav-link active text-start py-3 mb-2" id="v-pills-student-tab" data-bs-toggle="pill" data-bs-target="#v-pills-student" type="button" role="tab"><i class="fas fa-user-graduate me-2"></i> Student Guide</button>
+                    <button class="nav-link text-start py-3 mb-2" id="v-pills-lecturer-tab" data-bs-toggle="pill" data-bs-target="#v-pills-lecturer" type="button" role="tab"><i class="fas fa-chalkboard-teacher me-2"></i> Lecturer Guide</button>
+                    <button class="nav-link text-start py-3 mb-2" id="v-pills-trouble-tab" data-bs-toggle="pill" data-bs-target="#v-pills-trouble" type="button" role="tab"><i class="fas fa-tools me-2"></i> Troubleshooting</button>
+                    <button class="nav-link text-start py-3" id="v-pills-best-tab" data-bs-toggle="pill" data-bs-target="#v-pills-best" type="button" role="tab"><i class="fas fa-star me-2"></i> Best Practices</button>
+                </div>
+            </div>
+
+            <div class="col-lg-8">
+                <div class="tab-content" id="v-pills-tabContent">
+                    <!-- Student Guide -->
+                    <div class="tab-pane fade show active" id="v-pills-student" role="tabpanel">
+                        <div class="card border-0 shadow-sm p-4 rounded-4 mb-4">
+                            <h3 class="fw-bold mb-4 text-primary">Student Guide</h3>
+                            <div class="accordion accordion-flush" id="studentAccordion">
+                                <div class="accordion-item bg-transparent">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#sq1">
+                                            How do I register my face?
+                                        </button>
+                                    </h2>
+                                    <div id="sq1" class="accordion-collapse collapse" data-bs-parent="#studentAccordion">
+                                        <div class="accordion-body text-muted">
+                                            Go to the 'Student Registration' portal on the landing page. Enter your ID and name, then look at the camera. The system will capture several frames to learn your face. Once done, you're registered for the semester!
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item bg-transparent">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#sq2">
+                                            Do I need to register every time?
+                                        </button>
+                                    </h2>
+                                    <div id="sq2" class="accordion-collapse collapse" data-bs-parent="#studentAccordion">
+                                        <div class="accordion-body text-muted">
+                                            No! Enrollment is a one-time process. Once your face is in the system, you only need to stand in front of the live camera during sessions to mark your attendance.
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item bg-transparent">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#sq3">
+                                            What if my face is not recognized?
+                                        </button>
+                                    </h2>
+                                    <div id="sq3" class="accordion-collapse collapse" data-bs-parent="#studentAccordion">
+                                        <div class="accordion-body text-muted">
+                                            Ensure you are in a well-lit area and facing the camera directly. If recognition still fails, notify your lecturer to mark you manually or re-register your biometric data.
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item bg-transparent border-0">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#sq4">
+                                            Can I use my phone?
+                                        </button>
+                                    </h2>
+                                    <div id="sq4" class="accordion-collapse collapse" data-bs-parent="#studentAccordion">
+                                        <div class="accordion-body text-muted">
+                                            Yes, you can access the registration portal and the session link provided by your lecturer via your mobile browser, provided your phone has a front-facing camera.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lecturer Guide -->
+                    <div class="tab-pane fade" id="v-pills-lecturer" role="tabpanel">
+                        <div class="card border-0 shadow-sm p-4 rounded-4 mb-4">
+                            <h3 class="fw-bold mb-4 text-primary">Lecturer Guide</h3>
+                            <div class="accordion accordion-flush" id="lecturerAccordion">
+                                <div class="accordion-item bg-transparent">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#lq1">
+                                            How do I create an attendance session?
+                                        </button>
+                                    </h2>
+                                    <div id="lq1" class="accordion-collapse collapse" data-bs-parent="#lecturerAccordion">
+                                        <div class="accordion-body text-muted">
+                                            Login to the Lecturer Portal, go to the Dashboard, and click 'Create New Session'. This generates a unique link for students to join.
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item bg-transparent">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#lq2">
+                                            How do students join a session?
+                                        </button>
+                                    </h2>
+                                    <div id="lq2" class="accordion-collapse collapse" data-bs-parent="#lecturerAccordion">
+                                        <div class="accordion-body text-muted">
+                                            Share the generated session link (QR code or URL) with your students. When they open it, their camera will activate and identify them automatically.
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item bg-transparent border-0">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#lq3">
+                                            Can I export attendance records?
+                                        </button>
+                                    </h2>
+                                    <div id="lq3" class="accordion-collapse collapse" data-bs-parent="#lecturerAccordion">
+                                        <div class="accordion-body text-muted">
+                                            Yes. Navigate to the 'Attendance' page and click 'Export CSV'. This will download a spreadsheet of all students recognized during the session.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Troubleshooting -->
+                    <div class="tab-pane fade" id="v-pills-trouble" role="tabpanel">
+                        <div class="card border-0 shadow-sm p-4 rounded-4 mb-4">
+                            <h3 class="fw-bold mb-4 text-primary">Troubleshooting</h3>
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <div class="p-3 bg-light rounded-3 border-start border-primary border-4">
+                                        <h6 class="fw-bold"><i class="fas fa-video-slash me-2"></i>Camera Not Detected</h6>
+                                        <p class="small text-muted mb-0">Check browser permissions and ensure no other app (like Zoom or Teams) is using the camera.</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="p-3 bg-light rounded-3 border-start border-warning border-4">
+                                        <h6 class="fw-bold"><i class="fas fa-sun me-2"></i>Poor Lighting</h6>
+                                        <p class="small text-muted mb-0">The AI needs clear features. Move to a brighter area or turn on room lights to improve recognition.</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="p-3 bg-light rounded-3 border-start border-danger border-4">
+                                        <h6 class="fw-bold"><i class="fas fa-users me-2"></i>Multiple Faces</h6>
+                                        <p class="small text-muted mb-0">The system works best when only one face is in the frame. Ask others to step back during verification.</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="p-3 bg-light rounded-3 border-start border-info border-4">
+                                        <h6 class="fw-bold"><i class="fas fa-tachometer-alt me-2"></i>Slow Recognition</h6>
+                                        <p class="small text-muted mb-0">Ensure a stable internet connection. High latency can delay the biometric processing on the server.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Best Practices -->
+                    <div class="tab-pane fade" id="v-pills-best" role="tabpanel">
+                        <div class="card border-0 shadow-sm p-4 rounded-4 mb-4 text-center">
+                            <h3 class="fw-bold mb-4 text-primary text-start">Best Practices</h3>
+                            <div class="row g-4">
+                                <div class="col-6 col-md-3">
+                                    <i class="fas fa-lightbulb fa-2x text-warning mb-2"></i>
+                                    <p class="small fw-bold">Good Lighting</p>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <i class="fas fa-user-circle fa-2x text-primary mb-2"></i>
+                                    <p class="small fw-bold">Face Directly</p>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <i class="fas fa-glasses fa-2x text-secondary mb-2"></i>
+                                    <p class="small fw-bold">No Sunglasses</p>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <i class="fas fa-wifi fa-2x text-success mb-2"></i>
+                                    <p class="small fw-bold">Stable WiFi</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contact Support Footer -->
+                <div class="bg-primary text-white p-4 rounded-4 shadow-sm text-center">
+                    <h5 class="fw-bold mb-2">Still Need Help?</h5>
+                    <p class="small mb-0 opacity-75">For technical assistance, please contact the system administrator or reach out to your course lecturer.</p>
+                    <div class="mt-3">
+                        <a href="mailto:support@facerecognition.system" class="btn btn-light btn-sm fw-bold px-4">Contact Support</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

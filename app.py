@@ -124,6 +124,14 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
+@app.route('/privacy')
+def privacy():
+    return render_template('privacy.html')
+
+@app.route('/help')
+def help_page():
+    return render_template('help.html')
+
 # --- Main Routes ---
 @app.route('/')
 def landing():
