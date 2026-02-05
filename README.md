@@ -398,4 +398,11 @@ This is the **most important directory**.
 All production code lives here.
 
 
+## Team Coding Rules (Important)
+
+- Do not bypass the folder structure
+- One responsibility per module
+- Update README if architecture changes
+- Ask before making breaking changes
+- Keep code readable and documented
 
