@@ -191,6 +191,15 @@ graph TD
 | password    | String   | Hashed password for authentication |
 | created_at | DateTime | Date and time the account was created |
 
+### Students Table
+
+| Field        | Type      | Description |
+|-------------|-----------|-------------|
+| id          | Integer   | Unique record ID (Primary Key) |
+| student_id  | String    | Unique matriculation number |
+| name        | String    | Student full name |
+| created_at | DateTime  | Enrollment date and time |
+
 
 ### Attendance Table Structure
 
@@ -206,6 +215,47 @@ graph TD
 - One attendance entry per person per day
 - `(name, date)` should be unique
 - Storage layer must be replaceable without breaking logic
+
+### Entity-Relationship Daigram
+```mermaid
+erDiagram
+    STUDENTS {
+        INTEGER id PK
+        TEXT student_id UK
+        TEXT name
+        DATETIME created_at
+    }
+
+    LECTURERS {
+        INTEGER id PK
+        TEXT lecturer_id UK
+        TEXT name
+        TEXT course_code
+        TEXT password
+        DATETIME created_at
+    }
+
+    FACE_ENCODINGS {
+        INTEGER id PK
+        INTEGER student_id FK
+        BLOB encoding_data
+        DATETIME created_at
+    }
+
+    ATTENDANCE {
+        INTEGER id PK
+        INTEGER student_id FK
+        INTEGER lecturer_id FK
+        TEXT course_code
+        DATE date
+        TIME time
+        TEXT status
+    }
+
+    STUDENTS ||--o{ ATTENDANCE : "marks"
+    LECTURERS ||--o{ ATTENDANCE : "manages"
+    STUDENTS ||--|| FACE_ENCODINGS : "has"
+```
 
 ---
 
