@@ -178,7 +178,19 @@ graph TD
 
 ---
 
-## 8. Database Design (Attendance Records)
+## 8. Database Design 
+
+### Lecturer Table Structure
+
+| Field        | Type     | Description |
+|-------------|----------|-------------|
+| id          | Integer  | Unique record ID (Primary Key) |
+| lecturer_id | String   | Unique lecturer identifier (login ID) |
+| name        | String   | Lecturer full name |
+| course_code | String   | Course assigned to the lecturer |
+| password    | String   | Hashed password for authentication |
+| created_at | DateTime | Date and time the account was created |
+
 
 ### Attendance Table Structure
 
