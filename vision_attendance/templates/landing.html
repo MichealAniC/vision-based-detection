@@ -1,0 +1,151 @@
+{% extends 'index.html' %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center align-items-center" style="min-height: 70vh;">
+        <div class="col-lg-10">
+            <div class="text-center mb-5">
+                <h1 class="display-4 fw-bold text-primary mb-3">Face Recognition Attendance System</h1>
+                <p class="lead text-muted">A professional, AI-powered face recognition attendance solution.</p>
+                <div class="d-inline-block bg-white px-4 py-2 rounded shadow-sm mt-3">
+                    <p class="mb-0 text-dark"><i class="fas fa-clock text-primary me-2"></i><span id="liveDateTime" class="fw-bold"></span></p>
+                </div>
+            </div>
+
+            <div class="row g-4 justify-content-center">
+                <!-- Lecturer Portal -->
+                <div class="col-md-5">
+                    <div class="card h-100 border-0 shadow-lg text-center p-4 stat-card">
+                        <div class="card-body">
+                            <div class="mb-4">
+                                <i class="fas fa-chalkboard-teacher fa-4x text-primary"></i>
+                            </div>
+                            <h3 class="fw-bold mb-3">Lecturer Portal</h3>
+                            <p class="text-muted mb-4">Manage attendance sessions, view live dashboard, and export reports.</p>
+                            <div class="d-grid gap-2">
+                                <a href="/login" class="btn btn-primary btn-lg fw-bold">Login as Lecturer</a>
+                                <a href="/signup" class="btn btn-outline-primary btn-sm mt-2">New Lecturer? Sign Up</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Student Portal -->
+                <div class="col-md-5">
+                    <div class="card h-100 border-0 shadow-lg text-center p-4 stat-card">
+                        <div class="card-body">
+                            <div class="mb-4">
+                                <i class="fas fa-user-graduate fa-4x text-success"></i>
+                            </div>
+                            <h3 class="fw-bold mb-3">Student Portal</h3>
+                            <p class="text-muted mb-4">First-time registration? Enroll your biometric data to mark attendance.</p>
+                            <div class="d-grid gap-2">
+                                <a href="/register" class="btn btn-success btn-lg fw-bold">Student Registration</a>
+                            </div>
+                            <p class="mt-4 small text-muted">
+                                <i class="fas fa-info-circle me-1"></i> Already registered? 
+                                <br>Join attendance using session link shared by your lecturer
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- How It Works Section -->
+            <div class="row justify-content-center mt-5 pt-5" id="how-it-works">
+                <div class="col-lg-12">
+                    <div class="text-center mb-4">
+                        <h2 class="fw-bold text-dark display-5">How It Works</h2>
+                        <p class="text-dark fs-5">Simple, secure, and automated attendance in three steps</p>
+                    </div>
+                    
+                    <div class="row g-4">
+                        <!-- Step 1 -->
+                        <div class="col-md-4">
+                            <div class="card border-0 shadow h-100">
+                                <div class="card-body text-center p-4">
+                                    <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                                        <i class="fas fa-user-tie text-primary fa-2x"></i>
+                                    </div>
+                                    <h5 class="fw-bold mb-3">1. Lecturer Creates Session</h5>
+                                    <p class="text-muted">Lecturer logs in, generates a unique attendance session link, and shares it with students for the class.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 2 -->
+                        <div class="col-md-4">
+                            <div class="card border-0 shadow h-100">
+                                <div class="card-body text-center p-4">
+                                    <div class="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                                        <i class="fas fa-user-check text-success fa-2x"></i>
+                                    </div>
+                                    <h5 class="fw-bold mb-3">2. Students Enroll Face</h5>
+                                    <p class="text-muted">First-time students register by capturing their face data. This one-time enrollment enables future automatic recognition.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 3 -->
+                        <div class="col-md-4">
+                            <div class="card border-0 shadow h-100">
+                                <div class="card-body text-center p-4">
+                                    <div class="bg-info bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                                        <i class="fas fa-clipboard-check text-info fa-2x"></i>
+                                    </div>
+                                    <h5 class="fw-bold mb-3">3. Auto Attendance</h5>
+                                    <p class="text-muted">Students use the session link, and their attendance is marked instantly via AI-powered face recognition.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                   
+            <!-- How It Works Section -->
+            <div id="how-it-works" class="mt-5 pt-5">
+             
+                
+              
+
+                <div class="mt-5 p-4 bg-primary bg-opacity-10 rounded-4">
+                    <div class="row align-items-center">
+                        <div class="col-lg-8">
+                            <h5 class="fw-bold text-primary mb-2">Smart Biometric Intelligence</h5>
+                            <p class="text-dark small mb-0">
+                                This system utilizes the LBPH (Local Binary Patterns Histograms) algorithm to identify unique facial features. 
+                                It ensures high accuracy, handles varied lighting, and provides real-time data synchronization between the camera feed and the lecturer's dashboard.
+                            </p>
+                        </div>
+                        <div class="col-lg-4 text-center text-lg-end mt-3 mt-lg-0">
+                            <i class="fas fa-shield-alt fa-3x text-primary opacity-25"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+                   
+                </div>
+            </div>
+
+            <!-- <div class="mt-5 text-center text-muted small">
+                <p>&copy; 2026 FaceReg Attendance System. All rights reserved.</p>
+            </div> -->
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Hide the sidebar on the landing page for a cleaner look */
+    #sidebar { display: none !important; }
+    #content { margin-left: 0 !important; }
+    body { background: #f8f9fa; }
+</style>
+
+<script>
+    function updateDateTime() {
+        const now = new Date();
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+        document.getElementById('liveDateTime').textContent = now.toLocaleDateString('en-US', options);
+    }
+    setInterval(updateDateTime, 1000);
+    updateDateTime();
+</script>
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends 'index.html' %}
+
+{% block content %}
+<style>
+    /* Ensure the login page is perfectly centered by removing sidebar margin */
+    #content { margin-left: 0 !important; padding: 0 !important; }
+    #sidebar { display: none !important; }
+    body { background-color: #f8f9fa; }
+</style>
+
+<div class="container-fluid">
+    <div class="row min-vh-100 justify-content-center align-items-center m-0">
+        <div class="col-11 col-sm-9 col-md-7 col-lg-5 col-xl-4" style="max-width: 400px;">
+            <div class="text-center mb-4">
+                <div class="d-inline-block p-3 rounded-circle bg-white shadow-sm mb-3">
+                    <i class="fas fa-user-shield fa-3x text-primary"></i>
+                </div>
+                <h2 class="fw-bold text-dark">Admin Portal</h2>
+                <p class="text-muted">Enter credentials to access management</p>
+            </div>
+            
+            <div class="card border-0 shadow-lg rounded-4">
+                <div class="card-body p-4 p-md-5">
+                    {% if error %}
+                    <div class="alert alert-danger py-2 small border-0 mb-4">
+                        <i class="fas fa-exclamation-circle me-2"></i>{{ error }}
+                    </div>
+                    {% endif %}
+                    
+                    <form action="/login" method="POST" autocomplete="off">
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-uppercase text-secondary">Username</label>
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text bg-light border-0"><i class="fas fa-user text-muted"></i></span>
+                                <input type="text" name="username" class="form-control bg-light border-0 fs-6" required autofocus placeholder="Admin ID" autocomplete="new-password">
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-uppercase text-secondary">Password</label>
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text bg-light border-0"><i class="fas fa-key text-muted"></i></span>
+                                <input type="password" name="password" class="form-control bg-light border-0 fs-6" required placeholder="Password" autocomplete="new-password">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 py-3 fw-bold shadow-sm rounded-3 mt-2">
+                            Authorize Access <i class="fas fa-arrow-right ms-2"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <div class="text-center mt-4">
+                <a href="/" class="text-decoration-none text-muted small hover-primary transition-all">
+                    <i class="fas fa-chevron-left me-1"></i> Return to Home
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
