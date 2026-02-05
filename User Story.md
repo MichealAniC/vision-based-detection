@@ -1,13 +1,6 @@
-# 🎯 USER STORY — FACE RECOGNITION ATTENDANCE SYSTEM
+#  USER STORY — FACE RECOGNITION ATTENDANCE SYSTEM
 
-## 🧩 System Goal
-Create a web-based facial recognition attendance system that allows students to register once and later mark attendance via face verification, while lecturers manage attendance sessions and export records easily.
-
-The system is designed to be **fast, simple, and low-friction**, especially for students marking attendance in real-time.
-
----
-
-## 👤 USER ROLES
+## USER ROLES
 
 ### 1. Student
 - **Registration**: Registers once with identity details and face data.
@@ -19,7 +12,7 @@ The system is designed to be **fast, simple, and low-friction**, especially for 
 
 ---
 
-## 🧑‍🎓 STUDENT USER STORY
+## STUDENT USER STORY
 > "As a student, I want to register my personal details and facial data once, so that I can later mark attendance quickly using face recognition without logging in."
 
 ### Student Registration Flow (Backend Logic)
@@ -44,18 +37,18 @@ The system is designed to be **fast, simple, and low-friction**, especially for 
 
 ---
 
-## 👨‍🏫 ADMIN (LECTURER) USER STORY
+## ADMIN (LECTURER) USER STORY
 > "As a lecturer, I want to manage attendance sessions and verify students via facial recognition, so that attendance is accurate, fast, and exportable."
 
 ### Admin Access & Dashboard
 - **Authentication**: Secured via `@login_required` decorator and session encryption.
 - **Live Monitoring**: The **Attendance Dashboard** updates in real-time as students are recognized by the AI.
 
-### 📊 ATTENDANCE DASHBOARD
+### ATTENDANCE DASHBOARD
 - **Live Records**: Displays Student Name, Matric Number, Date, Time, and Status.
 - **System Stats**: Shows total registered students and today's attendance count at a glance.
 
-### 📥 DATA EXPORT & MANAGEMENT
+### DATA EXPORT & MANAGEMENT
 - **Spreadsheet Export**: Lecturers can download a CSV file containing all attendance data.
 - **Session Reset Rules**:
     - **Clear Logs**: Manually deletes attendance records to start a new session while keeping student registrations.
@@ -63,7 +56,7 @@ The system is designed to be **fast, simple, and low-friction**, especially for 
 
 ---
 
-## ⚙️ SYSTEM CONSTRAINTS & RULES
+## SYSTEM CONSTRAINTS & RULES
 
 1. **One-Time Registration**: The system blocks duplicate registrations if the AI recognizes an existing face during the capture process.
 2. **No Duplicate Entries**: A **10-second cooldown** ensures a student cannot be logged twice in a single recognition event.
@@ -72,7 +65,7 @@ The system is designed to be **fast, simple, and low-friction**, especially for 
 
 ---
 
-## ✅ ACCEPTANCE CRITERIA (Technical Implementation)
+## ACCEPTANCE CRITERIA (Technical Implementation)
 - [x] Students can register once and store face data successfully.
 - [x] AI accurately matches registered students with a strict confidence threshold.
 - [x] Students mark attendance via face capture only (frictionless).
