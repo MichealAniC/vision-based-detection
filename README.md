@@ -83,9 +83,52 @@ This flow should always be kept in mind when working on or modifying the code.
 
 ---
 
-## 5. System Architecture (How the Code Is Organized Conceptually)
+## 5. System Architecture Overview
+The application follows a modular **multi-tier architecture**, separating the user interface, processing logic, and data storage to ensure scalability and maintainability.
+
+* **Client Layer:** Serves as the entry point for users (Students and Lecturers) via standard web browsers.
+* **Frontend Layer:** Manages the user interface and interacts with the device hardware. It captures real-time video frames from the webcam and sends them to the server.
+* **Backend Layer:** The core of the application. It hosts the API controller for routing requests and the **Face Recognition Engine**, which handles face detection, encoding generation, and matching algorithms.
+* **Data Layer:** Persists all critical information, including student profiles, face encodings, and attendance logs.
+
+**Data Flow**
+Images captured in the *Frontend* are processed by the *Backend* to extract facial features. These features are matched against the *Data Layer*, and the resulting attendance status is returned to the *Client*.
+
+```mermaid
+flowchart TB
+    subgraph Client_Layer
+        A["Student<br/>Browser"]
+        B["Lecturer/Admin<br/>Browser"]
+    end
+
+    subgraph Frontend_Layer
+        C["Web Application UI<br/>(Forms, Dashboard)"]
+        D["Camera Interface<br/>(Webcam)"]
+    end
+
+    subgraph Backend_Layer
+        E["Backend Server<br/>(API & Controller)"]
+        F["Face Recognition Engine<br/>(Detection & Matching)"]
+    end
+
+    subgraph Data_Layer
+        G[("Database")]
+    end
+
+    A --> C
+    B --> C
+    C --> D
+    C --> E
+    D --> E
+    E --> F
+    F --> E
+    E --> G
+    G --> E
+    E --> C
+```
 
 The system follows a **pipeline architecture**. Each stage receives data, processes it, and passes it forward.
+
 ```text
 +------------------+
 |   Camera Input   |
