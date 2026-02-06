@@ -50,7 +50,7 @@ The system follows a sequential data pipeline that transforms physical light int
 FaceReg is structured using the **Model-View-Controller (MVC)** design pattern to ensure separation of concerns:
 
 -   **Model (`database.py` & SQLite)**: Defines the data structure (Lecturers, Students, Sessions, Attendance).
--   **View (`templates/` folder)**: Handles the presentation layer using Jinja2 templates (HTML/CSS/JS).
+-   **View (`Frontend/` folder)**: Handles the presentation layer using Jinja2 templates (HTML/CSS/JS).
 -   **Controller (`app.py`)**: The logic layer that processes user input, interacts with the Face Engine (`face_logic.py`), and updates the Model.
 
 ---
