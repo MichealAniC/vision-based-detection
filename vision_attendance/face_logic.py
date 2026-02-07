@@ -28,13 +28,19 @@ class FaceRecognizer:
         self.model_path = os.path.join(self.model_dir, 'trained_model.yml')
         self.label_map_path = os.path.join(self.model_dir, 'label_map.pkl')
         
-        # Using LBP Cascade for significantly faster detection compared to Haar
-        # Fallback to Haar if LBP is unavailable
-        lbp_path = cv2.data.haarcascades + 'lbpcascade_frontalface_improved.xml'
-        if os.path.exists(lbp_path):
-            self.face_cascade = cv2.CascadeClassifier(lbp_path)
+        # Using Standard Haar Cascade for maximum compatibility and reliability
+        # LBP can be faster but is less robust in varying lighting/quality
+        haar_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+        
+        if os.path.exists(haar_path):
+            print(f"Loading Haar Cascade from: {haar_path}")
+            self.face_cascade = cv2.CascadeClassifier(haar_path)
         else:
+            print("WARNING: System Haar path not found. Trying fallback.")
             self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+            
+        if self.face_cascade.empty():
+            print("CRITICAL ERROR: Failed to load face cascade classifier!")
         
         # RADIUS=1, NEIGHBORS=8 is the standard set.
         self.recognizer = cv2.face.LBPHFaceRecognizer_create(radius=1, neighbors=8, grid_x=8, grid_y=8)

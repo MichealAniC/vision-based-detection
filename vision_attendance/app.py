@@ -664,8 +664,10 @@ def save_frame():
 
         # Optimization: Use a higher quality face detection for the final save
         gray_frame = cv2.cvtColor(last_frame, cv2.COLOR_BGR2GRAY)
-        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        faces = face_cascade.detectMultiScale(gray_frame, 1.1, 10, minSize=(100, 100))
+        
+        # Reuse the already loaded (and verified) cascade from face_engine
+        # Use slightly stricter parameters for the final crop to ensure good quality
+        faces = face_engine.face_cascade.detectMultiScale(gray_frame, 1.1, 5, minSize=(60, 60))
         
         save_img = gray_frame
         if len(faces) > 0:
