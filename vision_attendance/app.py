@@ -424,6 +424,7 @@ def process_attendance_frame():
 
     # Detect and recognize
     # STRICTER threshold to prevent false positives (42 - matching local spec)
+    # FORCE UPDATE CHECK: If you see this comment, the code is updated.
     results = face_engine.detect_and_recognize(frame, strict_threshold=42)
     
     recognized_status = 'no_match'

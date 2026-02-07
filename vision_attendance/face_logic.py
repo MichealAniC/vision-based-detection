@@ -144,6 +144,7 @@ class FaceRecognizer:
         
         # Detection - Optimized for speed
         # scaleFactor 1.05 (matches local), minNeighbors 10 (strict)
+        # FORCE UPDATE CHECK: 1.05 / 10
         faces = self.face_cascade.detectMultiScale(gray, 1.05, 10, minSize=(40, 40))
         
         results = []
