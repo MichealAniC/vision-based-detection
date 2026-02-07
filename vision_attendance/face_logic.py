@@ -28,10 +28,23 @@ class FaceRecognizer:
         self.model_path = os.path.join(self.model_dir, 'trained_model.yml')
         self.label_map_path = os.path.join(self.model_dir, 'label_map.pkl')
         
+        # Initialize training state
+        self.trained = False
+        self.label_map = {} # {int_label: student_id}
+        self.last_train_time = 0 # Prevent excessive training calls
+        
         # Using Standard Haar Cascade for maximum compatibility and reliability
         # Auto-download if missing to ensure it works on Render
         self.face_cascade = self.load_or_download_cascade()
         
+        # RADIUS=1, NEIGHBORS=8 is the standard set.
+        self.recognizer = cv2.face.LBPHFaceRecognizer_create(radius=1, neighbors=8, grid_x=8, grid_y=8)
+        
+        if not os.path.exists(self.model_dir):
+            os.makedirs(self.model_dir)
+            
+        self.load_model()
+
     def load_or_download_cascade(self):
         # 1. Try local project path (bundled)
         local_path = os.path.join(self.model_dir, 'haarcascade_frontalface_default.xml')
@@ -64,17 +77,6 @@ class FaceRecognizer:
             
         print("CRITICAL ERROR: Could not load any Face Cascade!")
         return cv2.CascadeClassifier() # Return empty to avoid crash, checks later will fail gracefully
-        
-        # RADIUS=1, NEIGHBORS=8 is the standard set.
-        self.recognizer = cv2.face.LBPHFaceRecognizer_create(radius=1, neighbors=8, grid_x=8, grid_y=8)
-        self.trained = False
-        self.label_map = {} # {int_label: student_id}
-        self.last_train_time = 0 # Prevent excessive training calls
-        
-        if not os.path.exists(self.model_dir):
-            os.makedirs(self.model_dir)
-            
-        self.load_model()
 
     def load_model(self):
         if os.path.exists(self.model_path) and os.path.exists(self.label_map_path):
