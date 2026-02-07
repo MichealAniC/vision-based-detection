@@ -134,8 +134,8 @@
                 // Start Face Detection Overlay
                 startFaceDetection(videoElement, canvasElement);
 
-                // Start processing loop
-                setInterval(processFrame, 1000); // Check every 1 second
+                // Start processing loop - Faster polling (500ms) for snappy response
+                setInterval(processFrame, 500); 
                 
             } catch (err) {
                 console.error("Camera error:", err);

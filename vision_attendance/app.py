@@ -422,29 +422,34 @@ def process_attendance_frame():
         return jsonify({'status': 'error', 'message': 'Failed to decode image'}), 400
 
     # Detect and recognize
-    results = face_engine.detect_and_recognize(frame, strict_threshold=48)
+    # STRICTER threshold to prevent false positives (45)
+    results = face_engine.detect_and_recognize(frame, strict_threshold=45)
     
-    recognized = False
+    recognized_status = 'no_match'
     student_name = "Unknown"
     
     for res in results:
         if res['student_id'] != "Unknown":
-            mark_attendance(res['student_id'], session_id)
-            
-            # Get student name for response
+            # Check for existing attendance FIRST
             conn = get_db_connection()
-            student = conn.execute('SELECT name FROM students WHERE student_id = ?', (res['student_id'],)).fetchone()
-            conn.close()
+            exists = conn.execute('SELECT id FROM attendance WHERE student_id = ? AND session_id = ?', (res['student_id'], session_id)).fetchone()
             
+            student = conn.execute('SELECT name FROM students WHERE student_id = ?', (res['student_id'],)).fetchone()
             if student:
                 student_name = student['name']
-                recognized = True
-                break
+            conn.close()
 
-    if recognized:
-        return jsonify({'status': 'marked', 'student_name': student_name})
-    else:
-        return jsonify({'status': 'no_match'})
+            if exists:
+                recognized_status = 'already_marked'
+                # Even if already marked, we return immediately so the UI shows "Already Marked"
+                return jsonify({'status': 'already_marked', 'student_name': student_name})
+            
+            # If not marked, mark it
+            mark_attendance(res['student_id'], session_id)
+            recognized_status = 'marked'
+            return jsonify({'status': 'marked', 'student_name': student_name})
+
+    return jsonify({'status': 'no_match'})
 
 def gen_frames(session_id=None):
     global last_frame
