@@ -10,9 +10,9 @@ import pickle
 import uuid
 import secrets
 from functools import wraps
-from database import init_db, DB_PATH
+from .database import init_db, DB_PATH
 import sqlite3
-from face_logic import FaceRecognizer
+from .face_logic import FaceRecognizer
 
 app = Flask(__name__, template_folder='Frontend', static_folder='Styles')
 app.secret_key = secrets.token_hex(16)
