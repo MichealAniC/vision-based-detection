@@ -21,10 +21,7 @@
                                     <p class="small text-muted mt-2">Please allow camera permission when prompted</p>
                                 </div>
                                 
-                                <!-- Guide Frame Overlay -->
-                                <div id="guide_frame" class="position-absolute top-50 start-50 translate-middle border border-2 border-primary rounded-circle opacity-50" style="width: 200px; height: 260px; z-index: 2; pointer-events: none;">
-                                    <div class="position-absolute top-0 start-50 translate-middle-x bg-primary text-white px-2 py-1 rounded-bottom small" style="font-size: 10px;">ALIGN FACE HERE</div>
-                                </div>
+                                <!-- Guide Frame Overlay REMOVED -->
                                 <canvas id="overlay_canvas" class="position-absolute top-0 start-0 w-100 h-100" style="z-index: 3; pointer-events: none;"></canvas>
 
                                 <video id="video_feed" class="w-100 h-100 object-fit-contain" autoplay muted playsinline style="background: #000;"></video>
@@ -68,26 +65,12 @@
     #video_feed { transform: scaleX(-1); } /* Mirror effect for easier positioning */
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
 <script>
 let stream = null;
 let capturing = false;
-let faceDetectionInterval = null;
-
-// Load Face API models
-async function loadModels() {
-    const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
-    try {
-        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-        console.log("Face API models loaded");
-    } catch (err) {
-        console.error("Error loading Face API models:", err);
-    }
-}
 
 // Function to request camera permission and start video stream
 async function startCamera() {
-    await loadModels(); // Load models first
     const videoElement = document.getElementById('video_feed');
     const canvasElement = document.getElementById('overlay_canvas');
     const loadingElement = document.getElementById('camera_loading');
@@ -162,40 +145,15 @@ async function startCamera() {
         loadingElement.classList.add('d-none');
         startButton.disabled = false;
         
-        // Start Active Face Detection Overlay
-        startFaceDetection(videoElement, canvasElement);
+        // Match canvas size to video
+        canvasElement.width = videoElement.videoWidth;
+        canvasElement.height = videoElement.videoHeight;
 
     } catch (error) {
         console.error('Camera error:', error);
         startButton.disabled = true;
         showError(getErrorMessage(error));
     }
-}
-
-function startFaceDetection(video, canvas) {
-    if (faceDetectionInterval) clearInterval(faceDetectionInterval);
-    
-    // Match canvas size to video
-    const displaySize = { width: video.videoWidth, height: video.videoHeight };
-    faceapi.matchDimensions(canvas, displaySize);
-    
-    // Reverse context for mirrored video
-    const ctx = canvas.getContext('2d');
-    ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1);
-
-    faceDetectionInterval = setInterval(async () => {
-        if (!video.paused && !video.ended) {
-            const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
-            const resizedDetections = faceapi.resizeResults(detections, displaySize);
-            
-            // Clear previous drawings
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw detections
-            faceapi.draw.drawDetections(canvas, resizedDetections);
-        }
-    }, 100);
 }
 
 function getErrorMessage(error) {
@@ -365,6 +323,16 @@ document.getElementById('start_capture').onclick = function() {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const imageData = canvas.toDataURL('image/jpeg', 0.8);
+        
+        // Get overlay canvas for drawing Green Box
+        const overlayCanvas = document.getElementById('overlay_canvas');
+        const overlayCtx = overlayCanvas.getContext('2d');
+        
+        // Ensure overlay canvas matches video dimensions
+        if (overlayCanvas.width !== video.videoWidth) {
+             overlayCanvas.width = video.videoWidth;
+             overlayCanvas.height = video.videoHeight;
+        }
 
         try {
             const response = await fetch('/save_capture', {
@@ -380,6 +348,14 @@ document.getElementById('start_capture').onclick = function() {
 
             const data = await response.json();
             
+            // Clear previous drawings
+            overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            
+            // Mirror for user experience
+            overlayCtx.save();
+            overlayCtx.translate(overlayCanvas.width, 0);
+            overlayCtx.scale(-1, 1);
+
             if (data.status === 'success') {
                 count = data.count; // Use server count
                 let percent = Math.min(100, Math.round((count / max) * 100));
@@ -390,6 +366,25 @@ document.getElementById('start_capture').onclick = function() {
                 
                 // Clear any previous error messages
                 statusMsg.innerHTML = '';
+                
+                // Draw Green Box
+                if (data.box) {
+                    const [x, y, w, h] = data.box;
+                    
+                    // Draw Box
+                    overlayCtx.strokeStyle = '#00FF00';
+                    overlayCtx.lineWidth = 3;
+                    overlayCtx.strokeRect(x, y, w, h);
+                    
+                    // Draw Tag
+                    overlayCtx.font = 'bold 16px Arial';
+                    overlayCtx.fillStyle = '#00FF00';
+                    const text = "Detected";
+                    const textWidth = overlayCtx.measureText(text).width;
+                    overlayCtx.fillRect(x, y - 25, textWidth + 10, 25);
+                    overlayCtx.fillStyle = '#000000';
+                    overlayCtx.fillText(text, x + 5, y - 7);
+                }
                 
                 // Update instructions
                 let step = Math.floor(count / 10);
@@ -403,7 +398,11 @@ document.getElementById('start_capture').onclick = function() {
                 } else {
                     captureFrame(); // Trigger finish
                 }
+                
+                overlayCtx.restore(); // Restore context
+                
             } else if (data.status === 'retry') {
+                overlayCtx.restore(); // Restore context even on retry
                 // Face not detected or invalid, but we keep trying
                 console.log("Retry:", data.message);
                 statusMsg.innerHTML = `<div class="text-warning small"><i class="fas fa-exclamation-circle me-1"></i>${data.message}</div>`;
