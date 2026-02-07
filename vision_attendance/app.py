@@ -389,13 +389,19 @@ def save_capture():
         os.makedirs(student_dir)
 
     # Save cropped image
-    filename = f"{uuid.uuid4()}.jpg"
-    filepath = os.path.join(student_dir, filename)
-    cv2.imwrite(filepath, face_img)
+        filename = f"{uuid.uuid4()}.jpg"
+        filepath = os.path.join(student_dir, filename)
+        cv2.imwrite(filepath, face_img)
 
-    # Count existing images
-    count = len([name for name in os.listdir(student_dir) if os.path.isfile(os.path.join(student_dir, name))])
-    return jsonify({'status': 'success', 'count': count})
+        # Count existing images
+        count = len([name for name in os.listdir(student_dir) if os.path.isfile(os.path.join(student_dir, name))])
+        
+        # Return success with box coordinates for drawing
+        return jsonify({
+            'status': 'success', 
+            'count': count,
+            'box': [int(x), int(y), int(w), int(h)] 
+        })
 
 @app.route('/process_attendance_frame', methods=['POST'])
 def process_attendance_frame():
@@ -430,7 +436,15 @@ def process_attendance_frame():
     recognized_status = 'no_match'
     student_name = "Unknown"
     
+    # Prepare response data with boxes
+    faces_data = []
+    
     for res in results:
+        face_info = {
+            'box': res['box'], # [x, y, w, h]
+            'tag': res['student_id'] # "Unknown" or ID
+        }
+        
         if res['student_id'] != "Unknown":
             # Check for existing attendance FIRST
             conn = get_db_connection()
@@ -439,19 +453,29 @@ def process_attendance_frame():
             student = conn.execute('SELECT name FROM students WHERE student_id = ?', (res['student_id'],)).fetchone()
             if student:
                 student_name = student['name']
+                face_info['name'] = student_name
             conn.close()
 
             if exists:
                 recognized_status = 'already_marked'
-                # Even if already marked, we return immediately so the UI shows "Already Marked"
-                return jsonify({'status': 'already_marked', 'student_name': student_name})
-            
-            # If not marked, mark it
-            mark_attendance(res['student_id'], session_id)
-            recognized_status = 'marked'
-            return jsonify({'status': 'marked', 'student_name': student_name})
+                face_info['status'] = 'already_marked'
+            else:
+                # If not marked, mark it
+                mark_attendance(res['student_id'], session_id)
+                recognized_status = 'marked'
+                face_info['status'] = 'marked'
+        else:
+            face_info['status'] = 'unknown'
 
-    return jsonify({'status': 'no_match'})
+        faces_data.append(face_info)
+
+    # Return the first recognized status (priority: marked > already_marked > no_match)
+    # But include ALL face boxes for drawing
+    return jsonify({
+        'status': recognized_status, 
+        'student_name': student_name,
+        'faces': faces_data
+    })
 
 def gen_frames(session_id=None):
     global last_frame
