@@ -623,12 +623,17 @@ def save_frame():
 @app.route('/train')
 def train_model():
     try:
+        # Check if uploads directory has content
+        uploads_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+        if not os.path.exists(uploads_dir) or not os.listdir(uploads_dir):
+             return jsonify({"status": "error", "message": "No student data found to train."}), 400
+
         # Synchronous training for registration to ensure data is immediately ready
         success = face_engine.train()
         if success:
             return jsonify({"status": "training_started"})
         else:
-            return jsonify({"status": "error", "message": "Training failed. No faces found or data issue."}), 500
+            return jsonify({"status": "error", "message": "Training failed. No valid face data found."}), 500
     except Exception as e:
         print(f"Training Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500

@@ -25,6 +25,7 @@
                                 <div id="guide_frame" class="position-absolute top-50 start-50 translate-middle border border-2 border-primary rounded-circle opacity-50" style="width: 200px; height: 260px; z-index: 2; pointer-events: none;">
                                     <div class="position-absolute top-0 start-50 translate-middle-x bg-primary text-white px-2 py-1 rounded-bottom small" style="font-size: 10px;">ALIGN FACE HERE</div>
                                 </div>
+                                <canvas id="overlay_canvas" class="position-absolute top-0 start-0 w-100 h-100" style="z-index: 3; pointer-events: none;"></canvas>
 
                                 <video id="video_feed" class="w-100 h-100 object-fit-contain" autoplay muted playsinline style="background: #000;"></video>
                                 <div class="position-absolute bottom-0 start-0 w-100 p-2" style="background: rgba(0,0,0,0.5);">
@@ -67,13 +68,28 @@
     #video_feed { transform: scaleX(-1); } /* Mirror effect for easier positioning */
 </style>
 
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
 <script>
 let stream = null;
 let capturing = false;
+let faceDetectionInterval = null;
+
+// Load Face API models
+async function loadModels() {
+    const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+    try {
+        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+        console.log("Face API models loaded");
+    } catch (err) {
+        console.error("Error loading Face API models:", err);
+    }
+}
 
 // Function to request camera permission and start video stream
 async function startCamera() {
+    await loadModels(); // Load models first
     const videoElement = document.getElementById('video_feed');
+    const canvasElement = document.getElementById('overlay_canvas');
     const loadingElement = document.getElementById('camera_loading');
     const startButton = document.getElementById('start_capture');
     const loadingText = loadingElement.querySelector('p');
@@ -146,11 +162,40 @@ async function startCamera() {
         loadingElement.classList.add('d-none');
         startButton.disabled = false;
         
+        // Start Active Face Detection Overlay
+        startFaceDetection(videoElement, canvasElement);
+
     } catch (error) {
         console.error('Camera error:', error);
         startButton.disabled = true;
         showError(getErrorMessage(error));
     }
+}
+
+function startFaceDetection(video, canvas) {
+    if (faceDetectionInterval) clearInterval(faceDetectionInterval);
+    
+    // Match canvas size to video
+    const displaySize = { width: video.videoWidth, height: video.videoHeight };
+    faceapi.matchDimensions(canvas, displaySize);
+    
+    // Reverse context for mirrored video
+    const ctx = canvas.getContext('2d');
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+
+    faceDetectionInterval = setInterval(async () => {
+        if (!video.paused && !video.ended) {
+            const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
+            const resizedDetections = faceapi.resizeResults(detections, displaySize);
+            
+            // Clear previous drawings
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw detections
+            faceapi.draw.drawDetections(canvas, resizedDetections);
+        }
+    }, 100);
 }
 
 function getErrorMessage(error) {
