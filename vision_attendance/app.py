@@ -29,6 +29,9 @@ face_engine = FaceRecognizer()
 face_engine.train()
 
 # Global camera object and frame buffer
+# NOTE: cv2.VideoCapture(0) accesses the server's local camera.
+# In a cloud deployment (like Render), this will fail or find no camera.
+# We now rely on client-side WebRTC to capture frames and send them to the server.
 camera = cv2.VideoCapture()
 last_frame = None
 
