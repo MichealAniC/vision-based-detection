@@ -286,13 +286,28 @@ document.getElementById('start_capture').onclick = function() {
             liveInstruction.innerText = "Processing Data...";
             statusMsg.innerHTML = '<div class="alert alert-info p-2 mt-2"><i class="fas fa-brain me-2"></i>Optimizing AI Model...</div>';
             
-            const trainRes = await fetch('/train');
-            const trainData = await trainRes.json();
-            
-            if (trainData.status === "training_started") {
-                liveInstruction.innerText = "Success!";
-                statusMsg.innerHTML = '<div class="alert alert-success p-2 mt-2"><i class="fas fa-check-circle me-2"></i>Registration Complete!</div>';
-                setTimeout(() => { window.location.href = "/"; }, 2000);
+            try {
+                const trainRes = await fetch('/train');
+                const trainData = await trainRes.json();
+                
+                if (trainData.status === "training_started") {
+                    liveInstruction.innerText = "Success!";
+                    statusMsg.innerHTML = '<div class="alert alert-success p-2 mt-2"><i class="fas fa-check-circle me-2"></i>Registration Complete!</div>';
+                    setTimeout(() => { window.location.href = "/"; }, 2000);
+                } else {
+                    throw new Error(trainData.message || "Training failed");
+                }
+            } catch (err) {
+                console.error("Training error:", err);
+                liveInstruction.innerText = "Registration Failed";
+                statusMsg.innerHTML = `<div class="alert alert-danger p-2 mt-2"><i class="fas fa-times-circle me-2"></i>Error: ${err.message}. Please try again.</div>`;
+                // Re-enable button to allow retry
+                document.getElementById('start_capture').disabled = false;
+                document.getElementById('capture_text').innerText = "Retry Registration";
+                capturing = false;
+                count = 0; // Reset count for retry
+                document.getElementById('capture_progress').style.width = "0%";
+                document.getElementById('capture_count').innerText = "0 / " + max + " Images";
             }
             return;
         }

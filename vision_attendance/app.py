@@ -622,9 +622,16 @@ def save_frame():
 
 @app.route('/train')
 def train_model():
-    # Synchronous training for registration to ensure data is immediately ready
-    success = face_engine.train()
-    return jsonify({"status": "training_started" if success else "error"})
+    try:
+        # Synchronous training for registration to ensure data is immediately ready
+        success = face_engine.train()
+        if success:
+            return jsonify({"status": "training_started"})
+        else:
+            return jsonify({"status": "error", "message": "Training failed. No faces found or data issue."}), 500
+    except Exception as e:
+        print(f"Training Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 import shutil
 
