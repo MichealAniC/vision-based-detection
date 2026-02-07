@@ -361,9 +361,10 @@ def save_capture():
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     
     # Use LBP or Haar Cascade (LBP is faster for validation)
-    # Optimized: scaleFactor 1.2, minNeighbors 5
+    # Optimized for CAPTURE: scaleFactor 1.1 (faster), minNeighbors 5
+    # Relaxed minSize to 100x100 to catch faces faster when user is close
     faces = face_engine.face_cascade.detectMultiScale(
-        gray, scaleFactor=1.2, minNeighbors=5, minSize=(50, 50)
+        gray, scaleFactor=1.1, minNeighbors=5, minSize=(100, 100)
     )
 
     if len(faces) == 0:
@@ -621,9 +622,15 @@ def save_frame():
             if res['student_id'] != "Unknown" and res['student_id'] != student_id:
                 # STRICT duplicate detection: 70+ confidence (which is < 30 distance) means strong match
                 if res['confidence'] > 70: 
+                    # Resolve Name for better feedback
+                    conn = get_db_connection()
+                    existing_student = conn.execute('SELECT name FROM students WHERE student_id = ?', (res['student_id'],)).fetchone()
+                    conn.close()
+                    duplicate_name = existing_student['name'] if existing_student else res['student_id']
+
                     return jsonify({
                         "status": "duplicate", 
-                        "message": f"Security Alert: This face is already registered under Student ID: {res['student_id']}."
+                        "message": f"Security Alert: This face is already registered to {duplicate_name} ({res['student_id']})."
                     }), 400
 
         # Optimization: Use a higher quality face detection for the final save
