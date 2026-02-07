@@ -361,8 +361,9 @@ def save_capture():
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     
     # Use LBP or Haar Cascade (LBP is faster for validation)
+    # Optimized: scaleFactor 1.2, minNeighbors 5
     faces = face_engine.face_cascade.detectMultiScale(
-        gray, scaleFactor=1.05, minNeighbors=8, minSize=(50, 50)
+        gray, scaleFactor=1.2, minNeighbors=5, minSize=(50, 50)
     )
 
     if len(faces) == 0:

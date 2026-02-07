@@ -129,7 +129,7 @@ class FaceRecognizer:
             if os.path.exists(self.label_map_path): os.remove(self.label_map_path)
             return False
 
-    def detect_and_recognize(self, frame, strict_threshold=38):
+    def detect_and_recognize(self, frame, strict_threshold=50):
         # target_width 400 for better detection.
         target_width = 400 
         h, w = frame.shape[:2]
@@ -142,8 +142,9 @@ class FaceRecognizer:
         clahe = cv2.createCLAHE(clipLimit=1.5, tileGridSize=(8,8))
         gray = clahe.apply(gray)
         
-        # Detection
-        faces = self.face_cascade.detectMultiScale(gray, 1.05, 10, minSize=(40, 40))
+        # Detection - Optimized for speed
+        # scaleFactor 1.2 (faster), minNeighbors 5 (less strict)
+        faces = self.face_cascade.detectMultiScale(gray, 1.2, 5, minSize=(40, 40))
         
         results = []
         inv_scale = 1.0 / scale
@@ -162,7 +163,8 @@ class FaceRecognizer:
                 roi_gray = full_gray[orig_y:orig_y+orig_h, orig_x:orig_x+orig_w]
                 if roi_gray.size == 0: continue
                 
-                roi_gray = cv2.resize(roi_gray, (200, 200), interpolation=cv2.INTER_LANCZOS4)
+                # Optimized Interpolation
+                roi_gray = cv2.resize(roi_gray, (200, 200), interpolation=cv2.INTER_LINEAR)
                 # Apply lighter CLAHE on ROI to avoid over-sharpening noise
                 roi_gray = clahe.apply(roi_gray)
                 roi_gray = cv2.GaussianBlur(roi_gray, (3, 3), 0)
@@ -170,7 +172,7 @@ class FaceRecognizer:
                 label, confidence = self.recognizer.predict(roi_gray)
                 
                 # LBPH confidence is DISTANCE: 0 is perfect match.
-                # Threshold of 38 is VERY STRICT for LBPH to ensure zero mixing.
+                # Threshold of 50 allows more variation while keeping bad matches out.
                 if confidence < strict_threshold: 
                     student_id = self.label_map.get(label, "Unknown")
                 
