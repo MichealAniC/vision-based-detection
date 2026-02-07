@@ -328,6 +328,9 @@ document.getElementById('start_capture').onclick = function() {
                 progressCount.innerText = count + " / " + max + " Images";
                 progressPercent.innerText = percent + "%";
                 
+                // Clear any previous error messages
+                statusMsg.innerHTML = '';
+                
                 // Update instructions
                 let step = Math.floor(count / 10);
                 if (step < instructions.length) {
@@ -340,11 +343,19 @@ document.getElementById('start_capture').onclick = function() {
                 } else {
                     captureFrame(); // Trigger finish
                 }
+            } else if (data.status === 'retry') {
+                // Face not detected or invalid, but we keep trying
+                console.log("Retry:", data.message);
+                statusMsg.innerHTML = `<div class="text-warning small"><i class="fas fa-exclamation-circle me-1"></i>${data.message}</div>`;
+                if (capturing) {
+                    setTimeout(captureFrame, 100); // Retry faster
+                }
             } else {
                 console.error("Save failed:", data.message);
                 capturing = false;
                 document.getElementById('start_capture').disabled = false;
                 document.getElementById('capture_text').innerText = "Retry Capture";
+                statusMsg.innerHTML = `<div class="text-danger small">${data.message}</div>`;
             }
         } catch (err) {
             console.error("Error sending frame:", err);

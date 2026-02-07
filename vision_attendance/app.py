@@ -336,20 +336,43 @@ def save_capture():
     if frame is None:
         return jsonify({'status': 'error', 'message': 'Failed to decode image'}), 400
 
+    # Face Detection for Validation & Cropping
+    # Convert to grayscale for detection
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    
+    # Use LBP or Haar Cascade (LBP is faster for validation)
+    faces = face_engine.face_cascade.detectMultiScale(
+        gray, scaleFactor=1.05, minNeighbors=8, minSize=(50, 50)
+    )
+
+    if len(faces) == 0:
+        return jsonify({'status': 'retry', 'message': 'No face detected'}), 200
+    
+    if len(faces) > 1:
+        return jsonify({'status': 'retry', 'message': 'Multiple faces detected'}), 200
+
+    # Crop the first face found
+    (x, y, w, h) = faces[0]
+    # Add a small margin if possible, but keep it simple for now
+    face_img = frame[y:y+h, x:x+w]
+    
+    # Check if crop is valid
+    if face_img.size == 0:
+        return jsonify({'status': 'retry', 'message': 'Invalid face crop'}), 200
+
     # Create folder if not exists
     folder_name = student_id.replace('/', '-')
     student_dir = os.path.join('uploads', folder_name)
     if not os.path.exists(student_dir):
         os.makedirs(student_dir)
 
-    # Save image
+    # Save cropped image
     filename = f"{uuid.uuid4()}.jpg"
     filepath = os.path.join(student_dir, filename)
-    cv2.imwrite(filepath, frame)
+    cv2.imwrite(filepath, face_img)
 
     # Count existing images
     count = len([name for name in os.listdir(student_dir) if os.path.isfile(os.path.join(student_dir, name))])
-
     return jsonify({'status': 'success', 'count': count})
 
 @app.route('/process_attendance_frame', methods=['POST'])
