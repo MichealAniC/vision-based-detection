@@ -76,37 +76,75 @@ async function startCamera() {
     const videoElement = document.getElementById('video_feed');
     const loadingElement = document.getElementById('camera_loading');
     const startButton = document.getElementById('start_capture');
+    const loadingText = loadingElement.querySelector('p');
     
     try {
         console.log('Requesting camera access...');
+        loadingText.textContent = 'Requesting Camera Access...';
         
-        // Request camera permission
-        stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { 
-                width: { ideal: 640 },
-                height: { ideal: 480 },
-                facingMode: 'user'
-            }, 
-            audio: false 
-        });
+        // First check if media devices are available
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+            throw new Error('Media devices not supported');
+        }
+        
+        // Enumerate devices to check for cameras
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        
+        if (videoDevices.length === 0) {
+            throw new Error('NotFoundError');
+        }
+        
+        console.log(`Found ${videoDevices.length} camera(s)`);
+        loadingText.textContent = 'Accessing Camera...';
+        
+        // Try different constraints if the first one fails
+        const constraintsList = [
+            { video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }, audio: false },
+            { video: { width: { max: 640 }, height: { max: 480 }, facingMode: 'user' }, audio: false },
+            { video: { facingMode: 'user' }, audio: false },
+            { video: true, audio: false }
+        ];
+        
+        let streamSuccess = false;
+        
+        for (let i = 0; i < constraintsList.length; i++) {
+            try {
+                console.log(`Trying constraint set ${i + 1}`);
+                stream = await navigator.mediaDevices.getUserMedia(constraintsList[i]);
+                streamSuccess = true;
+                break;
+            } catch (constraintError) {
+                console.log(`Constraint set ${i + 1} failed:`, constraintError.name);
+                if (i === constraintsList.length - 1) {
+                    throw constraintError;
+                }
+            }
+        }
+        
+        if (!streamSuccess) {
+            throw new Error('Failed to get camera stream');
+        }
         
         console.log('Camera access granted');
+        loadingText.textContent = 'Starting Camera...';
         
         // Set the video stream as source
         videoElement.srcObject = stream;
         
-        // Enable start button when camera is ready
-        videoElement.onplaying = () => {
-            loadingElement.classList.add('d-none');
-            startButton.disabled = false;
-            console.log('Camera started successfully');
-        };
+        // Wait for video to load metadata
+        await new Promise((resolve, reject) => {
+            videoElement.onloadedmetadata = resolve;
+            videoElement.onerror = reject;
+            setTimeout(() => reject(new Error('Timeout')), 5000);
+        });
         
-        // Handle video errors
-        videoElement.onerror = (e) => {
-            console.error('Video error:', e);
-            showError('Unable to display camera feed. Please refresh the page.');
-        };
+        // Play the video
+        await videoElement.play();
+        
+        console.log('Camera started successfully');
+        loadingElement.classList.add('d-none');
+        startButton.disabled = false;
         
     } catch (error) {
         console.error('Camera error:', error);
@@ -144,20 +182,48 @@ function showError(message) {
         <i class="fas fa-video-slash fa-3x mb-3 text-danger"></i>
         <h5 class="mb-3">Camera Access Required</h5>
         <p class="mb-4">${message}</p>
-        <button class="btn btn-primary mb-3" onclick="location.reload()">
-            <i class="fas fa-redo me-2"></i>Try Again
-        </button>
-        <div class="small text-muted">
+        <div class="d-grid gap-2 col-8 mx-auto">
+            <button class="btn btn-primary" onclick="retryCamera()">
+                <i class="fas fa-redo me-2"></i>Retry Camera Access
+            </button>
+            <button class="btn btn-outline-light" onclick="location.reload()">
+                <i class="fas fa-sync me-2"></i>Refresh Page
+            </button>
+        </div>
+        <div class="mt-4 small text-muted">
             <p class="mb-2"><strong>Troubleshooting Tips:</strong></p>
             <ul class="text-start" style="max-width: 350px;">
                 <li>Click the camera icon 🔒 in your browser's address bar</li>
                 <li>Ensure you're using <strong>HTTPS</strong> (not HTTP)</li>
                 <li>Check that no other apps are using your camera</li>
-                <li>Try refreshing the page after granting permissions</li>
+                <li>Try a different browser (Chrome, Firefox, Edge recommended)</li>
+                <li>If on mobile, check app permissions in device settings</li>
             </ul>
         </div>
     `;
     document.querySelector('.camera-container').appendChild(errorDiv);
+}
+
+// New retry function
+async function retryCamera() {
+    // Remove existing error div
+    const errorDiv = document.getElementById('camera_error');
+    if (errorDiv) {
+        errorDiv.remove();
+    }
+    
+    // Show loading again
+    const loadingElement = document.getElementById('camera_loading');
+    loadingElement.classList.remove('d-none');
+    
+    // Reset stream
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+    }
+    
+    // Try to start camera again
+    await startCamera();
 }
 
 // Stop camera when page unloads
