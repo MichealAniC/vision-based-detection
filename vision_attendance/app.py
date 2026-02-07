@@ -666,6 +666,10 @@ def save_frame():
         gray_frame = cv2.cvtColor(last_frame, cv2.COLOR_BGR2GRAY)
         
         # Reuse the already loaded (and verified) cascade from face_engine
+        if face_engine.face_cascade.empty():
+             print("CRITICAL: Face cascade is empty in save_capture!")
+             return jsonify({'status': 'error', 'message': 'Server Configuration Error: Face Detector not loaded'}), 500
+
         # Use slightly stricter parameters for the final crop to ensure good quality
         faces = face_engine.face_cascade.detectMultiScale(gray_frame, 1.1, 5, minSize=(60, 60))
         

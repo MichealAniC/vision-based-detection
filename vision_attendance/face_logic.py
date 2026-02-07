@@ -29,18 +29,41 @@ class FaceRecognizer:
         self.label_map_path = os.path.join(self.model_dir, 'label_map.pkl')
         
         # Using Standard Haar Cascade for maximum compatibility and reliability
-        # LBP can be faster but is less robust in varying lighting/quality
-        haar_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+        # Auto-download if missing to ensure it works on Render
+        self.face_cascade = self.load_or_download_cascade()
         
-        if os.path.exists(haar_path):
-            print(f"Loading Haar Cascade from: {haar_path}")
-            self.face_cascade = cv2.CascadeClassifier(haar_path)
-        else:
-            print("WARNING: System Haar path not found. Trying fallback.")
-            self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    def load_or_download_cascade(self):
+        # 1. Try local project path (bundled)
+        local_path = os.path.join(self.model_dir, 'haarcascade_frontalface_default.xml')
+        if os.path.exists(local_path):
+            print(f"Loading Haar Cascade from local: {local_path}")
+            cascade = cv2.CascadeClassifier(local_path)
+            if not cascade.empty(): return cascade
             
-        if self.face_cascade.empty():
-            print("CRITICAL ERROR: Failed to load face cascade classifier!")
+        # 2. Try System Path (cv2.data)
+        system_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+        if os.path.exists(system_path):
+            print(f"Loading Haar Cascade from system: {system_path}")
+            cascade = cv2.CascadeClassifier(system_path)
+            if not cascade.empty(): return cascade
+
+        # 3. Download from GitHub if not found
+        print("WARNING: Haar Cascade not found locally. Downloading...")
+        url = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml"
+        try:
+            import requests
+            response = requests.get(url)
+            if response.status_code == 200:
+                with open(local_path, 'wb') as f:
+                    f.write(response.content)
+                print(f"Downloaded Haar Cascade to: {local_path}")
+                cascade = cv2.CascadeClassifier(local_path)
+                if not cascade.empty(): return cascade
+        except Exception as e:
+            print(f"CRITICAL ERROR: Failed to download cascade: {e}")
+            
+        print("CRITICAL ERROR: Could not load any Face Cascade!")
+        return cv2.CascadeClassifier() # Return empty to avoid crash, checks later will fail gracefully
         
         # RADIUS=1, NEIGHBORS=8 is the standard set.
         self.recognizer = cv2.face.LBPHFaceRecognizer_create(radius=1, neighbors=8, grid_x=8, grid_y=8)
