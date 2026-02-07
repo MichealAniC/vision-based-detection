@@ -585,76 +585,74 @@ def get_last_recognition():
     last_recognition_status = None # Clear after fetching
     return jsonify(status if status else {})
 
+# New endpoint for client-side camera capture
+@app.route('/save_frame_client', methods=['POST'])
+def save_frame_client():
+    global last_frame
+    student_id = request.form.get('student_id')
+    count = int(request.form.get('count', 0))
+    
+    # Get the uploaded image
+    if 'image' not in request.files:
+        return jsonify({'status': 'error', 'message': 'No image provided'}), 400
+    
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({'status': 'error', 'message': 'No image selected'}), 400
+    
+    try:
+        # Read image data
+        import numpy as np
+        from PIL import Image
+        
+        # Convert to OpenCV format
+        image = Image.open(file.stream)
+        frame = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+        
+        # Store as last_frame for face recognition
+        last_frame = frame.copy()
+        
+        # RECOGNITION CHECK: Prevent re-registering an already known face
+        results = face_engine.detect_and_recognize(last_frame, strict_threshold=35)
+        
+        # If no face is detected at all during capture, return error
+        if not results:
+             return jsonify({
+                'status': 'error', 
+                'message': 'Face not detected. Please look into the camera.'
+            }), 400
+
+        for res in results:
+            # If recognized as someone else (high confidence)
+            if res['student_id'] != 'Unknown' and res['student_id'] != student_id:
+                if res['confidence'] > 70: 
+                    return jsonify({
+                        'status': 'duplicate', 
+                        'message': f'Security Alert: This face is already registered under Student ID: {res["student_id"]}.'
+                    }), 400
+
+        # Save the image
+        gray_frame = cv2.cvtColor(last_frame, cv2.COLOR_BGR2GRAY)
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        faces = face_cascade.detectMultiScale(gray_frame, 1.1, 10, minSize=(100, 100))
+        
+        save_img = gray_frame
+        if len(faces) > 0:
+            (x, y, w, h) = faces[0]
+            save_img = gray_frame[y:y+h, x:x+w]
+        
+        save_img = cv2.resize(save_img, (200, 200))
+
+        folder_name = student_id.replace('/', '-')
+        student_dir = os.path.join('uploads', folder_name)
+        img_path = os.path.join(student_dir, f'{count}.jpg')
+        cv2.imwrite(img_path, save_img)
+        return jsonify({'status': 'success'})
+    
+    except Exception as e:
+        print(f'Error saving frame: {e}')
+        return jsonify({'status': 'error', 'message': 'Failed to process image'}), 500
+
 if __name__ == '__main__':
     # Use 0.0.0.0 to bind to all network interfaces, allowing external connections
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=False)
-
- @ a p p . r o u t e ( ' / s a v e _ f r a m e _ c l i e n t ' ,   m e t h o d s = [ ' P O S T ' ] ) 
- d e f   s a v e _ f r a m e _ c l i e n t ( ) : 
-         g l o b a l   l a s t _ f r a m e 
-         s t u d e n t _ i d   =   r e q u e s t . f o r m . g e t ( ' s t u d e n t _ i d ' ) 
-         c o u n t   =   i n t ( r e q u e s t . f o r m . g e t ( ' c o u n t ' ,   0 ) ) 
-         
-         #   G e t   t h e   u p l o a d e d   i m a g e 
-         i f   ' i m a g e '   n o t   i n   r e q u e s t . f i l e s : 
-                 r e t u r n   j s o n i f y ( { ' s t a t u s ' :   ' e r r o r ' ,   ' m e s s a g e ' :   ' N o   i m a g e   p r o v i d e d ' } ) ,   4 0 0 
-         
-         f i l e   =   r e q u e s t . f i l e s [ ' i m a g e ' ] 
-         i f   f i l e . f i l e n a m e   = =   ' ' : 
-                 r e t u r n   j s o n i f y ( { ' s t a t u s ' :   ' e r r o r ' ,   ' m e s s a g e ' :   ' N o   i m a g e   s e l e c t e d ' } ) ,   4 0 0 
-         
-         t r y : 
-                 #   R e a d   i m a g e   d a t a 
-                 i m p o r t   n u m p y   a s   n p 
-                 i m p o r t   c v 2 
-                 f r o m   P I L   i m p o r t   I m a g e 
-                 
-                 #   C o n v e r t   t o   O p e n C V   f o r m a t 
-                 i m a g e   =   I m a g e . o p e n ( f i l e . s t r e a m ) 
-                 f r a m e   =   c v 2 . c v t C o l o r ( n p . a r r a y ( i m a g e ) ,   c v 2 . C O L O R _ R G B 2 B G R ) 
-                 
-                 #   S t o r e   a s   l a s t _ f r a m e   f o r   f a c e   r e c o g n i t i o n 
-                 l a s t _ f r a m e   =   f r a m e . c o p y ( ) 
-                 
-                 #   R E C O G N I T I O N   C H E C K :   P r e v e n t   r e - r e g i s t e r i n g   a n   a l r e a d y   k n o w n   f a c e 
-                 r e s u l t s   =   f a c e _ e n g i n e . d e t e c t _ a n d _ r e c o g n i z e ( l a s t _ f r a m e ,   s t r i c t _ t h r e s h o l d = 3 5 ) 
-                 
-                 #   I f   n o   f a c e   i s   d e t e c t e d   a t   a l l   d u r i n g   c a p t u r e ,   r e t u r n   e r r o r 
-                 i f   n o t   r e s u l t s : 
-                           r e t u r n   j s o n i f y ( { 
-                                 ' s t a t u s ' :   ' e r r o r ' ,   
-                                 ' m e s s a g e ' :   ' F a c e   n o t   d e t e c t e d .   P l e a s e   l o o k   i n t o   t h e   c a m e r a . ' 
-                         } ) ,   4 0 0 
- 
-                 f o r   r e s   i n   r e s u l t s : 
-                         #   I f   r e c o g n i z e d   a s   s o m e o n e   e l s e   ( h i g h   c o n f i d e n c e ) 
-                         i f   r e s [ ' s t u d e n t _ i d ' ]   ! =   ' U n k n o w n '   a n d   r e s [ ' s t u d e n t _ i d ' ]   ! =   s t u d e n t _ i d : 
-                                 i f   r e s [ ' c o n f i d e n c e ' ]   >   7 0 :   
-                                         r e t u r n   j s o n i f y ( { 
-                                                 ' s t a t u s ' :   ' d u p l i c a t e ' ,   
-                                                 ' m e s s a g e ' :   f ' S e c u r i t y   A l e r t :   T h i s   f a c e   i s   a l r e a d y   r e g i s t e r e d   u n d e r   S t u d e n t   I D :   { r e s [ \  
- s t u d e n t _ i d \ ] } . ' 
-                                         } ) ,   4 0 0 
- 
-                 #   S a v e   t h e   i m a g e 
-                 g r a y _ f r a m e   =   c v 2 . c v t C o l o r ( l a s t _ f r a m e ,   c v 2 . C O L O R _ B G R 2 G R A Y ) 
-                 f a c e _ c a s c a d e   =   c v 2 . C a s c a d e C l a s s i f i e r ( c v 2 . d a t a . h a a r c a s c a d e s   +   ' h a a r c a s c a d e _ f r o n t a l f a c e _ d e f a u l t . x m l ' ) 
-                 f a c e s   =   f a c e _ c a s c a d e . d e t e c t M u l t i S c a l e ( g r a y _ f r a m e ,   1 . 1 ,   1 0 ,   m i n S i z e = ( 1 0 0 ,   1 0 0 ) ) 
-                 
-                 s a v e _ i m g   =   g r a y _ f r a m e 
-                 i f   l e n ( f a c e s )   >   0 : 
-                         ( x ,   y ,   w ,   h )   =   f a c e s [ 0 ] 
-                         s a v e _ i m g   =   g r a y _ f r a m e [ y : y + h ,   x : x + w ] 
-                 
-                 s a v e _ i m g   =   c v 2 . r e s i z e ( s a v e _ i m g ,   ( 2 0 0 ,   2 0 0 ) ) 
- 
-                 f o l d e r _ n a m e   =   s t u d e n t _ i d . r e p l a c e ( ' / ' ,   ' - ' ) 
-                 s t u d e n t _ d i r   =   o s . p a t h . j o i n ( ' u p l o a d s ' ,   f o l d e r _ n a m e ) 
-                 i m g _ p a t h   =   o s . p a t h . j o i n ( s t u d e n t _ d i r ,   f ' { c o u n t } . j p g ' ) 
-                 c v 2 . i m w r i t e ( i m g _ p a t h ,   s a v e _ i m g ) 
-                 r e t u r n   j s o n i f y ( { ' s t a t u s ' :   ' s u c c e s s ' } ) 
-         
-         e x c e p t   E x c e p t i o n   a s   e : 
-                 p r i n t ( f ' E r r o r   s a v i n g   f r a m e :   { e } ' ) 
-                 r e t u r n   j s o n i f y ( { ' s t a t u s ' :   ' e r r o r ' ,   ' m e s s a g e ' :   ' F a i l e d   t o   p r o c e s s   i m a g e ' } ) ,   5 0 0  
- 
