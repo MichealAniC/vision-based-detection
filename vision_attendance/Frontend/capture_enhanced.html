@@ -281,7 +281,7 @@ document.getElementById('start_capture').onclick = function() {
             }
             
             document.getElementById('video_feed').srcObject = null;
-            fetch('/stop_camera');
+            // fetch('/stop_camera'); // No longer needed
             
             liveInstruction.innerText = "Processing Data...";
             statusMsg.innerHTML = '<div class="alert alert-info p-2 mt-2"><i class="fas fa-brain me-2"></i>Optimizing AI Model...</div>';
@@ -296,6 +296,64 @@ document.getElementById('start_capture').onclick = function() {
             }
             return;
         }
+
+        // Capture frame using Canvas
+        const video = document.getElementById('video_feed');
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = canvas.toDataURL('image/jpeg', 0.8);
+
+        try {
+            const response = await fetch('/save_capture', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    image: imageData,
+                    student_id: studentId
+                })
+            });
+
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                count = data.count; // Use server count
+                let percent = Math.min(100, Math.round((count / max) * 100));
+                
+                progressBar.style.width = percent + "%";
+                progressCount.innerText = count + " / " + max + " Images";
+                progressPercent.innerText = percent + "%";
+                
+                // Update instructions
+                let step = Math.floor(count / 10);
+                if (step < instructions.length) {
+                    liveInstruction.innerText = instructions[step].text;
+                }
+                
+                // Continue capturing if not done
+                if (count < max) {
+                    setTimeout(captureFrame, 200); // 200ms delay between frames
+                } else {
+                    captureFrame(); // Trigger finish
+                }
+            } else {
+                console.error("Save failed:", data.message);
+                capturing = false;
+                document.getElementById('start_capture').disabled = false;
+                document.getElementById('capture_text').innerText = "Retry Capture";
+            }
+        } catch (err) {
+            console.error("Error sending frame:", err);
+            capturing = false;
+        }
+    }
+
+    captureFrame();
+};
 
         const inst = instructions.find((it, idx) => {
             const next = instructions[idx+1];

@@ -9,6 +9,8 @@ import io
 import pickle
 import uuid
 import secrets
+import base64
+import numpy as np
 from functools import wraps
 try:
     from .database import init_db, DB_PATH
@@ -315,6 +317,87 @@ def register():
 @app.route('/capture/<path:student_id>')
 def capture(student_id):
     return render_template('capture.html', student_id=student_id)
+
+@app.route('/save_capture', methods=['POST'])
+def save_capture():
+    data = request.json
+    image_data = data['image']
+    student_id = data['student_id']
+
+    # Decode base64 image
+    header, encoded = image_data.split(",", 1)
+    binary_data = base64.b64decode(encoded)
+    image_array = np.frombuffer(binary_data, dtype=np.uint8)
+    frame = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+
+    if frame is None:
+        return jsonify({'status': 'error', 'message': 'Failed to decode image'}), 400
+
+    # Create folder if not exists
+    folder_name = student_id.replace('/', '-')
+    student_dir = os.path.join('uploads', folder_name)
+    if not os.path.exists(student_dir):
+        os.makedirs(student_dir)
+
+    # Save image
+    filename = f"{uuid.uuid4()}.jpg"
+    filepath = os.path.join(student_dir, filename)
+    cv2.imwrite(filepath, frame)
+
+    # Count existing images
+    count = len([name for name in os.listdir(student_dir) if os.path.isfile(os.path.join(student_dir, name))])
+
+    return jsonify({'status': 'success', 'count': count})
+
+@app.route('/process_attendance_frame', methods=['POST'])
+def process_attendance_frame():
+    data = request.json
+    image_data = data['image']
+    token = data['token']
+
+    # Validate session
+    conn = get_db_connection()
+    session_data = conn.execute('SELECT id FROM sessions WHERE session_token = ? AND is_active = 1', (token,)).fetchone()
+    conn.close()
+
+    if not session_data:
+        return jsonify({'status': 'error', 'message': 'Invalid session'}), 400
+    
+    session_id = session_data['id']
+
+    # Decode image
+    header, encoded = image_data.split(",", 1)
+    binary_data = base64.b64decode(encoded)
+    image_array = np.frombuffer(binary_data, dtype=np.uint8)
+    frame = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+
+    if frame is None:
+        return jsonify({'status': 'error', 'message': 'Failed to decode image'}), 400
+
+    # Detect and recognize
+    results = face_engine.detect_and_recognize(frame, strict_threshold=48)
+    
+    recognized = False
+    student_name = "Unknown"
+    
+    for res in results:
+        if res['student_id'] != "Unknown":
+            mark_attendance(res['student_id'], session_id)
+            
+            # Get student name for response
+            conn = get_db_connection()
+            student = conn.execute('SELECT name FROM students WHERE student_id = ?', (res['student_id'],)).fetchone()
+            conn.close()
+            
+            if student:
+                student_name = student['name']
+                recognized = True
+                break
+
+    if recognized:
+        return jsonify({'status': 'marked', 'student_name': student_name})
+    else:
+        return jsonify({'status': 'no_match'})
 
 def gen_frames(session_id=None):
     global last_frame
