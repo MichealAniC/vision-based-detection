@@ -44,7 +44,17 @@ app = Flask(__name__, template_folder='Frontend', static_folder='Styles')
 app.secret_key = secrets.token_hex(16)
 
 # Initialize Face Engine with persistent paths
-face_engine = FaceRecognizer(dataset_path=UPLOADS_DIR, model_dir=MODELS_DIR)
+print("INFO: Initializing Face Engine...")
+try:
+    face_engine = FaceRecognizer(dataset_path=UPLOADS_DIR, model_dir=MODELS_DIR)
+    if face_engine.face_cascade.empty():
+        print("WARNING: Face Engine initialized but Cascade is EMPTY.")
+    else:
+        print("INFO: Face Engine initialized successfully.")
+except Exception as e:
+    print(f"CRITICAL STARTUP ERROR: Failed to initialize Face Engine: {e}")
+    # We don't exit here to allow Flask to start and show errors, but functionality will be broken.
+
 # Load existing models if any
 face_engine.train()
 

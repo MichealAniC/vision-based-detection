@@ -46,8 +46,13 @@ class FaceRecognizer:
         self.load_model()
 
     def load_or_download_cascade(self):
-        # 1. Try local project path (bundled)
-        local_path = os.path.join(self.model_dir, 'haarcascade_frontalface_default.xml')
+        # 1. Try local project path (bundled/vendored) - PREFERRED
+        # We now vendor this file in the repo to avoid download failures
+        local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'models', 'haarcascade_frontalface_default.xml')
+        if not os.path.exists(local_path):
+             # Fallback to the persistent storage path if deployed
+             local_path = os.path.join(self.model_dir, 'haarcascade_frontalface_default.xml')
+
         if os.path.exists(local_path):
             print(f"Loading Haar Cascade from local: {local_path}")
             cascade = cv2.CascadeClassifier(local_path)
@@ -60,22 +65,7 @@ class FaceRecognizer:
             cascade = cv2.CascadeClassifier(system_path)
             if not cascade.empty(): return cascade
 
-        # 3. Download from GitHub if not found
-        print("WARNING: Haar Cascade not found locally. Downloading...")
-        url = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml"
-        try:
-            import requests
-            response = requests.get(url)
-            if response.status_code == 200:
-                with open(local_path, 'wb') as f:
-                    f.write(response.content)
-                print(f"Downloaded Haar Cascade to: {local_path}")
-                cascade = cv2.CascadeClassifier(local_path)
-                if not cascade.empty(): return cascade
-        except Exception as e:
-            print(f"CRITICAL ERROR: Failed to download cascade: {e}")
-            
-        print("CRITICAL ERROR: Could not load any Face Cascade!")
+        print("CRITICAL ERROR: Could not load any Face Cascade! Please ensure haarcascade_frontalface_default.xml is present.")
         return cv2.CascadeClassifier() # Return empty to avoid crash, checks later will fail gracefully
 
     def load_model(self):
