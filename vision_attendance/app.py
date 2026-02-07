@@ -20,11 +20,31 @@ except ImportError:
     from face_logic import FaceRecognizer
 import sqlite3
 
+# Persistent Storage Path Configuration
+# On Render, mount a disk to /var/data
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if os.path.exists('/var/data'):
+    DATA_DIR = '/var/data'
+else:
+    # Fallback for local development
+    DATA_DIR = os.path.join(BASE_DIR, 'data')
+    if not os.path.exists(DATA_DIR):
+        os.makedirs(DATA_DIR)
+
+UPLOADS_DIR = os.path.join(DATA_DIR, 'uploads')
+MODELS_DIR = os.path.join(DATA_DIR, 'models')
+DB_PATH = os.path.join(DATA_DIR, 'attendance.db')
+
+if not os.path.exists(UPLOADS_DIR):
+    os.makedirs(UPLOADS_DIR)
+if not os.path.exists(MODELS_DIR):
+    os.makedirs(MODELS_DIR)
+
 app = Flask(__name__, template_folder='Frontend', static_folder='Styles')
 app.secret_key = secrets.token_hex(16)
 
-# Initialize Face Engine
-face_engine = FaceRecognizer()
+# Initialize Face Engine with persistent paths
+face_engine = FaceRecognizer(dataset_path=UPLOADS_DIR, model_dir=MODELS_DIR)
 # Load existing models if any
 face_engine.train()
 
@@ -35,14 +55,14 @@ face_engine.train()
 camera = cv2.VideoCapture()
 last_frame = None
 
-# Initialize DB on start
-init_db()
+# Initialize DB on start with persistent path
+init_db(DB_PATH)
 
 # Performance Caching
 student_name_cache = {} # {student_id: name}
 
 def get_db_connection():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=15)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -266,9 +286,9 @@ def delete_all_students():
         conn.commit()
         
         # 2. Clear Uploaded Images
-        if os.path.exists('uploads'):
-            for filename in os.listdir('uploads'):
-                file_path = os.path.join('uploads', filename)
+        if os.path.exists(UPLOADS_DIR):
+            for filename in os.listdir(UPLOADS_DIR):
+                file_path = os.path.join(UPLOADS_DIR, filename)
                 if os.path.isdir(file_path):
                     shutil.rmtree(file_path)
                     
@@ -306,7 +326,7 @@ def register():
                 # Create folder for student photos
                 # Note: We replace slashes with dashes for the folder name to avoid OS issues
                 folder_name = student_id.replace('/', '-')
-                student_dir = os.path.join('uploads', folder_name)
+                student_dir = os.path.join(UPLOADS_DIR, folder_name)
                 if not os.path.exists(student_dir):
                     os.makedirs(student_dir)
                     
@@ -362,7 +382,7 @@ def save_capture():
 
     # Create folder if not exists
     folder_name = student_id.replace('/', '-')
-    student_dir = os.path.join('uploads', folder_name)
+    student_dir = os.path.join(UPLOADS_DIR, folder_name)
     if not os.path.exists(student_dir):
         os.makedirs(student_dir)
 
@@ -624,8 +644,7 @@ def save_frame():
 def train_model():
     try:
         # Check if uploads directory has content
-        uploads_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
-        if not os.path.exists(uploads_dir) or not os.listdir(uploads_dir):
+        if not os.path.exists(UPLOADS_DIR) or not os.listdir(UPLOADS_DIR):
              return jsonify({"status": "error", "message": "No student data found to train."}), 400
 
         # Synchronous training for registration to ensure data is immediately ready

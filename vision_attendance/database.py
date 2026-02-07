@@ -1,10 +1,22 @@
 import sqlite3
 import os
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'attendance.db')
+# Persistent Storage Path Configuration for DB
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if os.path.exists('/var/data'):
+    DB_PATH = '/var/data/attendance.db'
+else:
+    # Fallback for local development
+    DATA_DIR = os.path.join(BASE_DIR, 'data')
+    if not os.path.exists(DATA_DIR):
+        os.makedirs(DATA_DIR)
+    DB_PATH = os.path.join(DATA_DIR, 'attendance.db')
 
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
+def init_db(db_path=None):
+    # Allow overriding path if needed, but default to global DB_PATH
+    target_path = db_path if db_path else DB_PATH
+    
+    conn = sqlite3.connect(target_path)
     cursor = conn.cursor()
     
     # Lecturers Table

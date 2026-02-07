@@ -7,8 +7,24 @@ import time
 class FaceRecognizer:
     def __init__(self, dataset_path=None, model_dir=None):
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        self.dataset_path = dataset_path or os.path.join(base_dir, 'uploads')
-        self.model_dir = model_dir or os.path.join(base_dir, 'models')
+        
+        # If paths are not provided, try to detect environment
+        if dataset_path is None:
+            if os.path.exists('/var/data'):
+                self.dataset_path = '/var/data/uploads'
+            else:
+                self.dataset_path = os.path.join(base_dir, 'data', 'uploads')
+        else:
+            self.dataset_path = dataset_path
+
+        if model_dir is None:
+            if os.path.exists('/var/data'):
+                self.model_dir = '/var/data/models'
+            else:
+                self.model_dir = os.path.join(base_dir, 'data', 'models')
+        else:
+            self.model_dir = model_dir
+            
         self.model_path = os.path.join(self.model_dir, 'trained_model.yml')
         self.label_map_path = os.path.join(self.model_dir, 'label_map.pkl')
         
