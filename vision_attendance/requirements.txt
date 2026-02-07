@@ -1,6 +1,6 @@
 flask==2.3.3
 opencv-python-headless==4.8.1.78
-# face-recognition removed due to dlib dependency issues
+
 numpy==1.24.3
 pillow==10.0.1
 

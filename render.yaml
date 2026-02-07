@@ -6,7 +6,7 @@ services:
   startCommand: gunicorn -w 2 -b 0.0.0.0:$PORT vision_attendance.app:app
   envVars:
   - key: PYTHON_VERSION
-    value: 3.9
+    value: 3.10
   - key: PYTHON_PATH
     value: .
   - key: FLASK_APP
