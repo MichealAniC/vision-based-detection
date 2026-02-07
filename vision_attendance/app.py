@@ -360,11 +360,25 @@ def save_capture():
     # Convert to grayscale for detection
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     
+    # Calculate brightness for debugging
+    avg_brightness = np.mean(gray)
+    print(f"DEBUG: Frame brightness: {avg_brightness:.2f}")
+
+    # Preprocessing: Apply CLAHE (Contrast Limited Adaptive Histogram Equalization)
+    # This significantly improves detection in low-light or uneven lighting conditions
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    gray_enhanced = clahe.apply(gray)
+    
+    # Reuse the already loaded (and verified) cascade from face_engine
+    if face_engine.face_cascade.empty():
+         print("CRITICAL: Face cascade is empty in save_capture!")
+         return jsonify({'status': 'error', 'message': 'Server Configuration Error: Face Detector not loaded'}), 500
+
     # Use LBP or Haar Cascade (LBP is faster for validation)
-    # Optimized for CAPTURE: scaleFactor 1.1, minNeighbors 5 (Standard)
+    # Optimized for CAPTURE: scaleFactor 1.1, minNeighbors 4 (Relaxed for easier capture)
     # Relaxed minSize to 60x60 to ensure we catch the face
     faces = face_engine.face_cascade.detectMultiScale(
-        gray, scaleFactor=1.1, minNeighbors=5, minSize=(60, 60)
+        gray_enhanced, scaleFactor=1.1, minNeighbors=4, minSize=(60, 60)
     )
 
     print(f"DEBUG: save_capture detected {len(faces)} faces") # Debug Log
