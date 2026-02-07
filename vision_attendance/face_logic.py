@@ -143,8 +143,8 @@ class FaceRecognizer:
         gray = clahe.apply(gray)
         
         # Detection - Optimized for speed
-        # scaleFactor 1.2 (faster), minNeighbors 5 (less strict)
-        faces = self.face_cascade.detectMultiScale(gray, 1.2, 5, minSize=(40, 40))
+        # scaleFactor 1.05 (matches local), minNeighbors 10 (strict)
+        faces = self.face_cascade.detectMultiScale(gray, 1.05, 10, minSize=(40, 40))
         
         results = []
         inv_scale = 1.0 / scale

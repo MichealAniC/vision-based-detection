@@ -422,8 +422,8 @@ def process_attendance_frame():
         return jsonify({'status': 'error', 'message': 'Failed to decode image'}), 400
 
     # Detect and recognize
-    # STRICTER threshold to prevent false positives (45)
-    results = face_engine.detect_and_recognize(frame, strict_threshold=45)
+    # STRICTER threshold to prevent false positives (42 - matching local spec)
+    results = face_engine.detect_and_recognize(frame, strict_threshold=42)
     
     recognized_status = 'no_match'
     student_name = "Unknown"
@@ -473,11 +473,11 @@ def gen_frames(session_id=None):
         
         last_frame = frame.copy()
         
-        # Optimization: Detect frequently for students (every frame) but skip for admin (every 2nd) to save CPU
-        should_detect = (session_id is not None) or (frame_count % 2 == 0)
+        # Optimization: Detect frequently for students (every frame) but skip for admin (every 3rd) to save CPU
+        should_detect = (session_id is not None) or (frame_count % 3 == 0)
         
         if should_detect:
-            # Use a slightly more relaxed threshold (50) for attendance recognition to speed it up,
+            # Use a slightly more relaxed threshold (48) for attendance recognition to speed it up,
             # but keep it strict enough to avoid mixing.
             current_threshold = 48 if session_id else 45
             last_results = face_engine.detect_and_recognize(frame, strict_threshold=current_threshold)
