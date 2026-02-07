@@ -5,11 +5,12 @@ import pickle
 import time
 
 class FaceRecognizer:
-    def __init__(self, dataset_path='uploads', model_dir='models'):
-        self.dataset_path = dataset_path
-        self.model_dir = model_dir
-        self.model_path = os.path.join(model_dir, 'trained_model.yml')
-        self.label_map_path = os.path.join(model_dir, 'label_map.pkl')
+    def __init__(self, dataset_path=None, model_dir=None):
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        self.dataset_path = dataset_path or os.path.join(base_dir, 'uploads')
+        self.model_dir = model_dir or os.path.join(base_dir, 'models')
+        self.model_path = os.path.join(self.model_dir, 'trained_model.yml')
+        self.label_map_path = os.path.join(self.model_dir, 'label_map.pkl')
         
         # Using LBP Cascade for significantly faster detection compared to Haar
         # Fallback to Haar if LBP is unavailable
