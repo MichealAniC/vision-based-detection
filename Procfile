@@ -1,0 +1,1 @@
+web: cd vision_attendance && python app.py

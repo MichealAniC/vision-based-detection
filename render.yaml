@@ -1,0 +1,13 @@
+services:
+- type: web
+  name: vision-attendance-backend
+  env: python
+  buildCommand: pip install -r requirements.txt
+  startCommand: gunicorn -w 4 -b 0.0.0.0:$PORT vision_attendance.app:app
+  envVars:
+  - key: PYTHON_PATH
+    value: .
+  - key: FLASK_APP
+    value: app.py
+  - key: FLASK_ENV
+    value: production

@@ -586,4 +586,5 @@ def get_last_recognition():
     return jsonify(status if status else {})
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Use 0.0.0.0 to bind to all network interfaces, allowing external connections
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=False)
