@@ -361,11 +361,13 @@ def save_capture():
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     
     # Use LBP or Haar Cascade (LBP is faster for validation)
-    # Optimized for CAPTURE: scaleFactor 1.1 (faster), minNeighbors 5
-    # Relaxed minSize to 100x100 to catch faces faster when user is close
+    # Optimized for CAPTURE: scaleFactor 1.1, minNeighbors 5 (Standard)
+    # Relaxed minSize to 60x60 to ensure we catch the face
     faces = face_engine.face_cascade.detectMultiScale(
-        gray, scaleFactor=1.1, minNeighbors=5, minSize=(100, 100)
+        gray, scaleFactor=1.1, minNeighbors=5, minSize=(60, 60)
     )
+
+    print(f"DEBUG: save_capture detected {len(faces)} faces") # Debug Log
 
     if len(faces) == 0:
         return jsonify({'status': 'retry', 'message': 'No face detected'}), 200
@@ -432,6 +434,8 @@ def process_attendance_frame():
     # STRICTER threshold to prevent false positives (42 - matching local spec)
     # FORCE UPDATE CHECK: If you see this comment, the code is updated.
     results = face_engine.detect_and_recognize(frame, strict_threshold=42)
+    
+    print(f"DEBUG: process_attendance_frame results: {len(results)} faces found") # Debug Log
     
     recognized_status = 'no_match'
     student_name = "Unknown"
@@ -816,7 +820,7 @@ def save_frame_client():
         # Save the image
         gray_frame = cv2.cvtColor(last_frame, cv2.COLOR_BGR2GRAY)
         face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        faces = face_cascade.detectMultiScale(gray_frame, 1.1, 10, minSize=(100, 100))
+        faces = face_cascade.detectMultiScale(gray_frame, 1.1, 5, minSize=(60, 60))
         
         save_img = gray_frame
         if len(faces) > 0:
