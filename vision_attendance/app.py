@@ -44,17 +44,7 @@ app = Flask(__name__, template_folder='Frontend', static_folder='Styles')
 app.secret_key = secrets.token_hex(16)
 
 # Initialize Face Engine with persistent paths
-print("INFO: Initializing Face Engine...")
-try:
-    face_engine = FaceRecognizer(dataset_path=UPLOADS_DIR, model_dir=MODELS_DIR)
-    if face_engine.face_cascade.empty():
-        print("WARNING: Face Engine initialized but Cascade is EMPTY.")
-    else:
-        print("INFO: Face Engine initialized successfully.")
-except Exception as e:
-    print(f"CRITICAL STARTUP ERROR: Failed to initialize Face Engine: {e}")
-    # We don't exit here to allow Flask to start and show errors, but functionality will be broken.
-
+face_engine = FaceRecognizer(dataset_path=UPLOADS_DIR, model_dir=MODELS_DIR)
 # Load existing models if any
 face_engine.train()
 
@@ -370,34 +360,36 @@ def save_capture():
     # Convert to grayscale for detection
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     
-    # Calculate brightness for debugging
-    avg_brightness = np.mean(gray)
-    print(f"DEBUG: Frame brightness: {avg_brightness:.2f}")
-
-    # Preprocessing: Apply CLAHE (Contrast Limited Adaptive Histogram Equalization)
-    # This significantly improves detection in low-light or uneven lighting conditions
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-    gray_enhanced = clahe.apply(gray)
-    
-    # Reuse the already loaded (and verified) cascade from face_engine
-    if face_engine.face_cascade.empty():
-         print("CRITICAL: Face cascade is empty in save_capture!")
-         return jsonify({'status': 'error', 'message': 'Server Configuration Error: Face Detector not loaded'}), 500
-
     # Use LBP or Haar Cascade (LBP is faster for validation)
-    # Optimized for CAPTURE: scaleFactor 1.1, minNeighbors 4 (Relaxed for easier capture)
-    # Relaxed minSize to 60x60 to ensure we catch the face
+    # Optimized for capture speed: scaleFactor 1.1, minNeighbors 5, minSize (60, 60)
     faces = face_engine.face_cascade.detectMultiScale(
-        gray_enhanced, scaleFactor=1.1, minNeighbors=4, minSize=(60, 60)
+        gray, scaleFactor=1.1, minNeighbors=5, minSize=(60, 60)
     )
 
-    print(f"DEBUG: save_capture detected {len(faces)} faces") # Debug Log
-
     if len(faces) == 0:
-        return jsonify({'status': 'retry', 'message': 'No face detected'}), 200
+        return jsonify({'status': 'retry', 'message': 'No face detected. Please look into the camera.'}), 200
     
     if len(faces) > 1:
-        return jsonify({'status': 'retry', 'message': 'Multiple faces detected'}), 200
+        return jsonify({'status': 'retry', 'message': 'Multiple faces detected. Ensure only you are in frame.'}), 200
+
+    # DUPLICATE CHECK: Prevent re-registration of existing faces
+    # Run recognition on the full frame with a very strict threshold (35)
+    # This checks if this face is ALREADY registered to SOMEONE ELSE
+    results = face_engine.detect_and_recognize(frame, strict_threshold=35)
+    
+    for res in results:
+        if res['student_id'] != "Unknown" and res['student_id'] != student_id:
+            # Face recognized as someone else with high confidence
+            # Get the name of the existing user
+            conn = get_db_connection()
+            existing_student = conn.execute('SELECT name FROM students WHERE student_id = ?', (res['student_id'],)).fetchone()
+            conn.close()
+            
+            name = existing_student['name'] if existing_student else res['student_id']
+            return jsonify({
+                'status': 'duplicate', 
+                'message': f'Face already registered to {name} ({res["student_id"]}). Registration blocked.'
+            }), 200
 
     # Crop the first face found
     (x, y, w, h) = faces[0]
@@ -415,19 +407,19 @@ def save_capture():
         os.makedirs(student_dir)
 
     # Save cropped image
-        filename = f"{uuid.uuid4()}.jpg"
-        filepath = os.path.join(student_dir, filename)
-        cv2.imwrite(filepath, face_img)
+    filename = f"{uuid.uuid4()}.jpg"
+    filepath = os.path.join(student_dir, filename)
+    cv2.imwrite(filepath, face_img)
 
-        # Count existing images
-        count = len([name for name in os.listdir(student_dir) if os.path.isfile(os.path.join(student_dir, name))])
-        
-        # Return success with box coordinates for drawing
-        return jsonify({
-            'status': 'success', 
-            'count': count,
-            'box': [int(x), int(y), int(w), int(h)] 
-        })
+    # Count existing images
+    count = len([name for name in os.listdir(student_dir) if os.path.isfile(os.path.join(student_dir, name))])
+    
+    # Return count and student name for UI feedback
+    return jsonify({
+        'status': 'success', 
+        'count': count,
+        'student_name': student_id # Or fetch real name if needed, but ID is sufficient for reg feedback
+    })
 
 @app.route('/process_attendance_frame', methods=['POST'])
 def process_attendance_frame():
@@ -456,23 +448,12 @@ def process_attendance_frame():
 
     # Detect and recognize
     # STRICTER threshold to prevent false positives (42 - matching local spec)
-    # FORCE UPDATE CHECK: If you see this comment, the code is updated.
     results = face_engine.detect_and_recognize(frame, strict_threshold=42)
-    
-    print(f"DEBUG: process_attendance_frame results: {len(results)} faces found") # Debug Log
     
     recognized_status = 'no_match'
     student_name = "Unknown"
     
-    # Prepare response data with boxes
-    faces_data = []
-    
     for res in results:
-        face_info = {
-            'box': res['box'], # [x, y, w, h]
-            'tag': res['student_id'] # "Unknown" or ID
-        }
-        
         if res['student_id'] != "Unknown":
             # Check for existing attendance FIRST
             conn = get_db_connection()
@@ -481,29 +462,19 @@ def process_attendance_frame():
             student = conn.execute('SELECT name FROM students WHERE student_id = ?', (res['student_id'],)).fetchone()
             if student:
                 student_name = student['name']
-                face_info['name'] = student_name
             conn.close()
 
             if exists:
                 recognized_status = 'already_marked'
-                face_info['status'] = 'already_marked'
-            else:
-                # If not marked, mark it
-                mark_attendance(res['student_id'], session_id)
-                recognized_status = 'marked'
-                face_info['status'] = 'marked'
-        else:
-            face_info['status'] = 'unknown'
+                # Even if already marked, we return immediately so the UI shows "Already Marked"
+                return jsonify({'status': 'already_marked', 'student_name': student_name})
+            
+            # If not marked, mark it
+            mark_attendance(res['student_id'], session_id)
+            recognized_status = 'marked'
+            return jsonify({'status': 'marked', 'student_name': student_name})
 
-        faces_data.append(face_info)
-
-    # Return the first recognized status (priority: marked > already_marked > no_match)
-    # But include ALL face boxes for drawing
-    return jsonify({
-        'status': recognized_status, 
-        'student_name': student_name,
-        'faces': faces_data
-    })
+    return jsonify({'status': 'no_match'})
 
 def gen_frames(session_id=None):
     global last_frame
@@ -675,27 +646,15 @@ def save_frame():
             if res['student_id'] != "Unknown" and res['student_id'] != student_id:
                 # STRICT duplicate detection: 70+ confidence (which is < 30 distance) means strong match
                 if res['confidence'] > 70: 
-                    # Resolve Name for better feedback
-                    conn = get_db_connection()
-                    existing_student = conn.execute('SELECT name FROM students WHERE student_id = ?', (res['student_id'],)).fetchone()
-                    conn.close()
-                    duplicate_name = existing_student['name'] if existing_student else res['student_id']
-
                     return jsonify({
                         "status": "duplicate", 
-                        "message": f"Security Alert: This face is already registered to {duplicate_name} ({res['student_id']})."
+                        "message": f"Security Alert: This face is already registered under Student ID: {res['student_id']}."
                     }), 400
 
         # Optimization: Use a higher quality face detection for the final save
         gray_frame = cv2.cvtColor(last_frame, cv2.COLOR_BGR2GRAY)
-        
-        # Reuse the already loaded (and verified) cascade from face_engine
-        if face_engine.face_cascade.empty():
-             print("CRITICAL: Face cascade is empty in save_capture!")
-             return jsonify({'status': 'error', 'message': 'Server Configuration Error: Face Detector not loaded'}), 500
-
-        # Use slightly stricter parameters for the final crop to ensure good quality
-        faces = face_engine.face_cascade.detectMultiScale(gray_frame, 1.1, 5, minSize=(60, 60))
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        faces = face_cascade.detectMultiScale(gray_frame, 1.1, 10, minSize=(100, 100))
         
         save_img = gray_frame
         if len(faces) > 0:
@@ -850,7 +809,7 @@ def save_frame_client():
         # Save the image
         gray_frame = cv2.cvtColor(last_frame, cv2.COLOR_BGR2GRAY)
         face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        faces = face_cascade.detectMultiScale(gray_frame, 1.1, 5, minSize=(60, 60))
+        faces = face_cascade.detectMultiScale(gray_frame, 1.1, 10, minSize=(100, 100))
         
         save_img = gray_frame
         if len(faces) > 0:

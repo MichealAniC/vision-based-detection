@@ -28,45 +28,24 @@ class FaceRecognizer:
         self.model_path = os.path.join(self.model_dir, 'trained_model.yml')
         self.label_map_path = os.path.join(self.model_dir, 'label_map.pkl')
         
-        # Initialize training state
-        self.trained = False
-        self.label_map = {} # {int_label: student_id}
-        self.last_train_time = 0 # Prevent excessive training calls
-        
-        # Using Standard Haar Cascade for maximum compatibility and reliability
-        # Auto-download if missing to ensure it works on Render
-        self.face_cascade = self.load_or_download_cascade()
+        # Using LBP Cascade for significantly faster detection compared to Haar
+        # Fallback to Haar if LBP is unavailable
+        lbp_path = cv2.data.haarcascades + 'lbpcascade_frontalface_improved.xml'
+        if os.path.exists(lbp_path):
+            self.face_cascade = cv2.CascadeClassifier(lbp_path)
+        else:
+            self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
         
         # RADIUS=1, NEIGHBORS=8 is the standard set.
         self.recognizer = cv2.face.LBPHFaceRecognizer_create(radius=1, neighbors=8, grid_x=8, grid_y=8)
+        self.trained = False
+        self.label_map = {} # {int_label: student_id}
+        self.last_train_time = 0 # Prevent excessive training calls
         
         if not os.path.exists(self.model_dir):
             os.makedirs(self.model_dir)
             
         self.load_model()
-
-    def load_or_download_cascade(self):
-        # 1. Try local project path (bundled/vendored) - PREFERRED
-        # We now vendor this file in the repo to avoid download failures
-        local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'models', 'haarcascade_frontalface_default.xml')
-        if not os.path.exists(local_path):
-             # Fallback to the persistent storage path if deployed
-             local_path = os.path.join(self.model_dir, 'haarcascade_frontalface_default.xml')
-
-        if os.path.exists(local_path):
-            print(f"Loading Haar Cascade from local: {local_path}")
-            cascade = cv2.CascadeClassifier(local_path)
-            if not cascade.empty(): return cascade
-            
-        # 2. Try System Path (cv2.data)
-        system_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-        if os.path.exists(system_path):
-            print(f"Loading Haar Cascade from system: {system_path}")
-            cascade = cv2.CascadeClassifier(system_path)
-            if not cascade.empty(): return cascade
-
-        print("CRITICAL ERROR: Could not load any Face Cascade! Please ensure haarcascade_frontalface_default.xml is present.")
-        return cv2.CascadeClassifier() # Return empty to avoid crash, checks later will fail gracefully
 
     def load_model(self):
         if os.path.exists(self.model_path) and os.path.exists(self.label_map_path):
@@ -164,9 +143,8 @@ class FaceRecognizer:
         gray = clahe.apply(gray)
         
         # Detection - Optimized for speed
-        # scaleFactor 1.1 (balanced), minNeighbors 6 (reliable detection)
-        # FORCE UPDATE CHECK: 1.1 / 6
-        faces = self.face_cascade.detectMultiScale(gray, 1.1, 6, minSize=(30, 30))
+        # scaleFactor 1.05 (matches local), minNeighbors 10 (strict)
+        faces = self.face_cascade.detectMultiScale(gray, 1.05, 10, minSize=(40, 40))
         
         results = []
         inv_scale = 1.0 / scale
