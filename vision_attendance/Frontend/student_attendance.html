@@ -200,7 +200,11 @@
                 const data = await response.json();
 
                 if (data.status === 'marked' || data.status === 'already_marked') {
-                    showSuccess(data);
+                    if (data.student_name && data.student_name !== 'Unknown') {
+                        showSuccess(data);
+                    } else {
+                        console.warn("Name resolution failed despite recognition.");
+                    }
                 } else if (data.status === 'error') {
                     console.warn("Recognition error:", data.message);
                 }

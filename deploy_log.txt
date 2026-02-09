@@ -1,0 +1,21 @@
+STARTING DEPLOY 
+On branch render-deployment
+Your branch is ahead of 'origin/render-deployment' by 23 commits.
+  (use "git push" to publish your local commits)
+
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+	modified:   vision_attendance/Frontend/student_attendance.html
+	modified:   vision_attendance/app.py
+	modified:   vision_attendance/face_logic.py
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	deploy.bat
+	deploy_log.txt
+	git_push_script.py
+	h_script.py'
+	robust_deploy.py
+	"t capture, strict recognition, fix Unknown labels\357\200\242'"
+	t_deploy.py'
+

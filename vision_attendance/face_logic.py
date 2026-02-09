@@ -129,7 +129,7 @@ class FaceRecognizer:
             if os.path.exists(self.label_map_path): os.remove(self.label_map_path)
             return False
 
-    def detect_and_recognize(self, frame, strict_threshold=50):
+    def detect_and_recognize(self, frame, strict_threshold=50, detection_scale=1.05, detection_neighbors=10):
         # target_width 400 for better detection.
         target_width = 400 
         h, w = frame.shape[:2]
@@ -142,9 +142,8 @@ class FaceRecognizer:
         clahe = cv2.createCLAHE(clipLimit=1.5, tileGridSize=(8,8))
         gray = clahe.apply(gray)
         
-        # Detection - Optimized for speed
-        # scaleFactor 1.05 (matches local), minNeighbors 10 (strict)
-        faces = self.face_cascade.detectMultiScale(gray, 1.05, 10, minSize=(40, 40))
+        # Detection
+        faces = self.face_cascade.detectMultiScale(gray, detection_scale, detection_neighbors, minSize=(40, 40))
         
         results = []
         inv_scale = 1.0 / scale

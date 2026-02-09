@@ -374,8 +374,13 @@ def save_capture():
 
     # DUPLICATE CHECK: Prevent re-registration of existing faces
     # Run recognition on the full frame with a very strict threshold (35)
-    # This checks if this face is ALREADY registered to SOMEONE ELSE
-    results = face_engine.detect_and_recognize(frame, strict_threshold=35)
+    # Use faster detection parameters (1.2, 5) to keep UI responsive
+    results = face_engine.detect_and_recognize(
+        frame, 
+        strict_threshold=35,
+        detection_scale=1.2,
+        detection_neighbors=5
+    )
     
     for res in results:
         if res['student_id'] != "Unknown" and res['student_id'] != student_id:
@@ -448,6 +453,7 @@ def process_attendance_frame():
 
     # Detect and recognize
     # STRICTER threshold to prevent false positives (42 - matching local spec)
+    # Use standard detection parameters for accuracy (1.05, 10)
     results = face_engine.detect_and_recognize(frame, strict_threshold=42)
     
     recognized_status = 'no_match'
@@ -463,6 +469,10 @@ def process_attendance_frame():
             if student:
                 student_name = student['name']
             conn.close()
+
+            # CRITICAL: Ensure we have a valid name before marking
+            if not student_name or student_name == "Unknown":
+                continue
 
             if exists:
                 recognized_status = 'already_marked'
